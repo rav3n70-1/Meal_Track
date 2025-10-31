@@ -7,24 +7,28 @@ import {
   Users, 
   Settings, 
   TrendingUp,
-  FileText
+  FileText,
+  UserCircle
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useHousehold } from '../../context/HouseholdContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { getUserRole } = useHousehold();
+  const { t } = useLanguage();
   const role = getUserRole();
 
   const navigationItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: Home },
-    { path: '/expenses', label: 'Expenses', icon: Receipt },
-    { path: '/members', label: 'Members', icon: Users },
-    { path: '/reports', label: 'Reports', icon: TrendingUp },
-    { path: '/activity', label: 'Activity Log', icon: FileText },
-    { path: '/settings', label: 'Settings', icon: Settings },
+    { path: '/dashboard', label: t('dashboard'), icon: Home },
+    { path: '/profile', label: 'My Profile', icon: UserCircle },
+    { path: '/expenses', label: t('expenses'), icon: Receipt },
+    { path: '/members', label: t('members'), icon: Users },
+    { path: '/reports', label: t('reports'), icon: TrendingUp },
+    { path: '/activity', label: t('activity'), icon: FileText },
+    { path: '/settings', label: t('settings'), icon: Settings },
   ];
 
   const handleNavigation = (path) => {
@@ -58,22 +62,26 @@ const Sidebar = ({ isOpen, onClose }) => {
       >
         <nav className="p-4 space-y-2">
           {role && (
-            <div className="mb-4 p-3 bg-primary/10 rounded-lg">
+            <motion.div 
+              className="mb-4 p-3 bg-primary/10 rounded-lg"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
               <p className="text-xs text-muted-foreground uppercase tracking-wider">
                 Your Role
               </p>
               <p className="text-sm font-semibold text-primary capitalize">
-                {role}
+                {role === 'manager' ? t('manager') : t('member')}
               </p>
-            </div>
+            </motion.div>
           )}
 
-          {navigationItems.map((item) => {
+          {navigationItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
 
             return (
-              <button
+              <motion.button
                 key={item.path}
                 onClick={() => handleNavigation(item.path)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
@@ -81,10 +89,15 @@ const Sidebar = ({ isOpen, onClose }) => {
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'hover:bg-accent text-foreground'
                 }`}
+                whileHover={{ scale: 1.02, x: 5 }}
+                whileTap={{ scale: 0.98 }}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
               >
                 <Icon size={20} />
                 <span className="font-medium">{item.label}</span>
-              </button>
+              </motion.button>
             );
           })}
         </nav>

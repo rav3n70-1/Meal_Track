@@ -68,9 +68,24 @@ export const HouseholdProvider = ({ children }) => {
 
       // Update user profile with household ID
       const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, {
-        householdId: householdRef.id
-      });
+      
+      // Check if user document exists first
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        await updateDoc(userRef, {
+          householdId: householdRef.id
+        });
+      } else {
+        // Create user document if it doesn't exist
+        await setDoc(userRef, {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          photoURL: currentUser.photoURL,
+          createdAt: new Date().toISOString(),
+          householdId: householdRef.id
+        });
+      }
 
       // Reload user profile
       await loadUserProfile(currentUser.uid);
@@ -120,9 +135,24 @@ export const HouseholdProvider = ({ children }) => {
 
       // Update user profile with household ID
       const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, {
-        householdId: householdId
-      });
+      
+      // Check if user document exists first
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        await updateDoc(userRef, {
+          householdId: householdId
+        });
+      } else {
+        // Create user document if it doesn't exist
+        await setDoc(userRef, {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          photoURL: currentUser.photoURL,
+          createdAt: new Date().toISOString(),
+          householdId: householdId
+        });
+      }
 
       // Reload user profile
       await loadUserProfile(currentUser.uid);

@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { HouseholdProvider } from './context/HouseholdContext';
 
@@ -10,6 +11,7 @@ import { HouseholdProvider } from './context/HouseholdContext';
 import Login from './pages/Login';
 import Setup from './pages/Setup';
 import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
 import Expenses from './pages/Expenses';
 import Members from './pages/Members';
 import Reports from './pages/Reports';
@@ -73,9 +75,10 @@ const PublicRoute = ({ children }) => {
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <HouseholdProvider>
-          <Router>
+      <LanguageProvider>
+        <AuthProvider>
+          <HouseholdProvider>
+            <Router>
             <Routes>
               {/* Public Routes */}
               <Route 
@@ -102,6 +105,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
+
+              <Route 
+                path="/profile" 
+                element={
+                  <ProtectedRoute>
+                    <Profile />
                   </ProtectedRoute>
                 } 
               />
@@ -170,9 +182,9 @@ function App() {
                 } 
               />
             </Routes>
-          </Router>
+            </Router>
 
-          {/* Toast Notifications */}
+            {/* Toast Notifications */}
           <Toaster
             position="top-right"
             toastOptions={{
@@ -196,8 +208,9 @@ function App() {
               },
             }}
           />
-        </HouseholdProvider>
-      </AuthProvider>
+          </HouseholdProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

@@ -1,16 +1,18 @@
 // Navigation bar component
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Menu, X, Moon, Sun, LogOut, Users, DollarSign } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Menu, X, Moon, Sun, LogOut, Languages } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import Button from '../ui/Button';
 
 const Navbar = ({ onMenuToggle }) => {
   const { currentUser, signOut } = useAuth();
   const { household } = useHousehold();
   const { theme, toggleTheme } = useTheme();
+  const { language, toggleLanguage, t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -39,21 +41,45 @@ const Navbar = ({ onMenuToggle }) => {
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
             
-            <div className="flex items-center gap-2">
-              <DollarSign className="text-primary" size={28} />
+            <motion.div 
+              className="flex items-center gap-2"
+              whileHover={{ scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              <motion.div
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              >
+                <span className="text-3xl">৳</span>
+              </motion.div>
               <div>
-                <h1 className="text-lg font-bold">Meal Tracker</h1>
+                <h1 className="text-lg font-bold">
+                  {language === 'bn' ? 'খাবার ট্র্যাকার' : 'Meal Tracker'}
+                </h1>
                 {household && (
                   <p className="text-xs text-muted-foreground hidden sm:block">
                     {household.name}
                   </p>
                 )}
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-2">
+            {/* Language Toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleLanguage}
+              icon={<Languages size={18} />}
+              className="hidden sm:flex"
+            >
+              <span className="hidden md:inline">
+                {language === 'bn' ? 'English' : 'বাংলা'}
+              </span>
+            </Button>
+
             {/* Theme Toggle */}
             <Button
               variant="ghost"
@@ -63,7 +89,7 @@ const Navbar = ({ onMenuToggle }) => {
               className="hidden sm:flex"
             >
               <span className="hidden md:inline">
-                {theme === 'light' ? 'Dark' : 'Light'}
+                {theme === 'light' ? (language === 'bn' ? 'ডার্ক' : 'Dark') : (language === 'bn' ? 'লাইট' : 'Light')}
               </span>
             </Button>
 
@@ -94,7 +120,7 @@ const Navbar = ({ onMenuToggle }) => {
                   icon={<LogOut size={18} />}
                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
-                  <span className="hidden lg:inline">Logout</span>
+                  <span className="hidden lg:inline">{t('logout')}</span>
                 </Button>
               </div>
             )}
@@ -102,24 +128,38 @@ const Navbar = ({ onMenuToggle }) => {
         </div>
       </div>
 
-      {/* Mobile Theme Toggle */}
-      {mobileMenuOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="lg:hidden border-t border-border bg-background p-4"
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleTheme}
-            icon={theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-            className="w-full justify-start"
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="lg:hidden border-t border-border bg-background overflow-hidden"
           >
-            {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
-          </Button>
-        </motion.div>
-      )}
+            <div className="p-4 space-y-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleLanguage}
+                icon={<Languages size={18} />}
+                className="w-full justify-start"
+              >
+                {language === 'bn' ? 'English' : 'বাংলা'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleTheme}
+                icon={theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+                className="w-full justify-start"
+              >
+                {theme === 'light' ? (language === 'bn' ? 'ডার্ক মোড' : 'Dark Mode') : (language === 'bn' ? 'লাইট মোড' : 'Light Mode')}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 };

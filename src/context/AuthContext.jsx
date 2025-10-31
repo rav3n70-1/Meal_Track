@@ -71,6 +71,21 @@ export const AuthProvider = ({ children }) => {
       
       if (userSnap.exists()) {
         setUserProfile(userSnap.data());
+      } else {
+        // If profile doesn't exist, create it
+        const user = auth.currentUser;
+        if (user) {
+          const newProfile = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            createdAt: new Date().toISOString(),
+            householdId: null
+          };
+          await setDoc(userRef, newProfile);
+          setUserProfile(newProfile);
+        }
       }
     } catch (error) {
       console.error('Error loading user profile:', error);

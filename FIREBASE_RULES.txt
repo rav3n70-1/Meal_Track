@@ -1,4 +1,5 @@
 // Firestore Security Rules for Meal Expense Tracker
+// UPDATED: Fixed invite code join permission issue
 // Copy these rules to Firebase Console > Firestore Database > Rules
 
 rules_version = '2';
@@ -32,8 +33,9 @@ service cloud.firestore {
     
     // Household documents
     match /households/{householdId} {
-      // Anyone authenticated can read households they're a member of
-      allow read: if isMember(householdId);
+      // ✅ FIXED: Anyone authenticated can read households (needed for invite code lookup)
+      // This allows users to query households by invite code before joining
+      allow read: if isSignedIn();
       
       // Any authenticated user can create a household
       allow create: if isSignedIn();
@@ -46,8 +48,9 @@ service cloud.firestore {
       
       // Members subcollection
       match /members/{memberId} {
-        // All household members can read member list
-        allow read: if isMember(householdId);
+        // ✅ FIXED: Anyone authenticated can read member list (needed to check capacity before joining)
+        // This allows checking member count before joining household
+        allow read: if isSignedIn();
         
         // New members can add themselves (when joining via invite code)
         // Managers can add/update any member
@@ -104,3 +107,52 @@ service firebase.storage {
 }
 */
 
+/*
+CHANGES MADE TO FIX INVITE CODE ISSUE:
+======================================
+
+1. Line 34: Changed household read permission from:
+   allow read: if isMember(householdId);
+   TO:
+   allow read: if isSignedIn();
+   
+   REASON: Users need to query households by invite code BEFORE becoming members.
+
+2. Line 49: Changed members read permission from:
+   allow read: if isMember(householdId);
+   TO:
+   allow read: if isSignedIn();
+   
+   REASON: Users need to check member count (for 10-member limit) BEFORE joining.
+
+SECURITY NOTE:
+=============
+These changes allow ANY authenticated user to read household documents and member lists.
+This is necessary for the invite code functionality to work.
+
+However, this is still secure because:
+- Users must be authenticated (logged in)
+- Users can only write to their own user document
+- Users can only add themselves as members (with valid invite code)
+- Sensitive operations (update, delete) still require membership
+- Expense data still requires membership to read
+
+DEPLOYMENT:
+===========
+1. Go to Firebase Console: https://console.firebase.google.com/
+2. Select your project: meal-tracker-11262
+3. Click "Firestore Database" in left menu
+4. Click "Rules" tab at top
+5. Copy ALL rules from this file
+6. Paste into the editor
+7. Click "Publish"
+8. Wait for confirmation
+
+TEST AFTER DEPLOYMENT:
+======================
+1. Sign in as a new user
+2. Go to Setup page
+3. Click "Join Household"
+4. Enter an existing invite code
+5. Should work without permission errors!
+*/

@@ -1,9 +1,104 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+    
+    // Helper function to check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is a household member
+    function isMember(householdId) {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid));
+    }
+    
+    // Helper function to check if user is a household manager
+    function isManager(householdId) {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid)).data.role == 'manager';
+    }
+    
+    // User documents - each user can read all users but only write their own
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false; // Users cannot delete their profiles
+    }
+    
+    // Household documents
+    match /households/{householdId} {
+      // ✅ FIXED: Anyone authenticated can read households (needed for invite code lookup)
+      // This allows users to query households by invite code before joining
+      allow read: if isSignedIn();
+      
+      // Any authenticated user can create a household
+      allow create: if isSignedIn();
+      
+      // Only members can update household info
+      allow update: if isMember(householdId);
+      
+      // Only managers can delete households
+      allow delete: if isManager(householdId);
+      
+      // Members subcollection
+      match /members/{memberId} {
+        // ✅ FIXED: Anyone authenticated can read member list (needed to check capacity before joining)
+        // This allows checking member count before joining household
+        allow read: if isSignedIn();
+        
+        // New members can add themselves (when joining via invite code)
+        // Managers can add/update any member
+        allow create: if isSignedIn() && 
+                        (request.auth.uid == memberId || isManager(householdId));
+        
+        // Members can update their own profile
+        // Managers can update any member
+        allow update: if isSignedIn() && 
+                        (request.auth.uid == memberId || isManager(householdId));
+        
+        // Only managers can remove members
+        allow delete: if isManager(householdId);
+      }
+      
+      // Expenses subcollection
+      match /expenses/{expenseId} {
+        // All household members can read expenses
+        allow read: if isMember(householdId);
+        
+        // Any household member can create an expense
+        allow create: if isMember(householdId) && 
+                        request.auth.uid == request.resource.data.createdBy;
+        
+        // Managers can update any expense (for approval/rejection)
+        // Members can only update their own pending expenses
+        allow update: if isSignedIn() && 
+                        (isManager(householdId) || 
+                         (request.auth.uid == resource.data.createdBy && 
+                          resource.data.status == 'pending'));
+        
+        // Only managers can delete expenses
+        allow delete: if isManager(householdId);
+      }
     }
   }
 }
+
+// Storage Rules (if you add file uploads in the future)
+// Uncomment and adjust as needed
+
+/*
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /receipts/{householdId}/{expenseId}/{fileName} {
+      // Allow authenticated users to upload receipts for their household
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                     request.resource.size < 5 * 1024 * 1024 && // Max 5MB
+                     request.resource.contentType.matches('image/.*');
+    }
+  }
+}
+*/
