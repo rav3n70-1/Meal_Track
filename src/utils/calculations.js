@@ -1,4 +1,5 @@
 // Utility functions for expense calculations and balance summaries
+import { getDisplayName } from './displayName';
 
 /**
  * Calculate balance summary for all household members
@@ -14,9 +15,11 @@ export const calculateBalances = (expenses, members) => {
   const memberBalances = {};
   members.forEach(member => {
     memberBalances[member.uid] = {
-      name: member.name,
+      name: getDisplayName(member),
+      fullName: member.name,
       email: member.email,
       photoURL: member.photoURL,
+      nickname: member.nickname,
       totalPaid: 0,
       totalShare: 0,
       balance: 0,

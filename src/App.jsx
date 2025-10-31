@@ -17,6 +17,7 @@ import Members from './pages/Members';
 import Reports from './pages/Reports';
 import Activity from './pages/Activity';
 import Settings from './pages/Settings';
+import AuthHandler from './components/AuthHandler';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -52,7 +53,7 @@ const ProtectedRoute = ({ children }) => {
 
 // Public Route component (only accessible when not logged in)
 const PublicRoute = ({ children }) => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, userProfile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -66,7 +67,10 @@ const PublicRoute = ({ children }) => {
   }
 
   if (currentUser) {
-    return <Navigate to="/dashboard" replace />;
+    // If user has household, go to dashboard
+    // If no household, go to setup
+    const destination = userProfile?.householdId ? '/dashboard' : '/setup';
+    return <Navigate to={destination} replace />;
   }
 
   return children;
@@ -77,9 +81,10 @@ function App() {
     <ThemeProvider>
       <LanguageProvider>
         <AuthProvider>
-          <HouseholdProvider>
-            <Router>
-            <Routes>
+          <AuthHandler>
+            <HouseholdProvider>
+              <Router>
+                <Routes>
               {/* Public Routes */}
               <Route 
                 path="/login" 
@@ -163,8 +168,15 @@ function App() {
                 } 
               />
 
-              {/* Default Route */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* Default Route - Check Auth First */}
+              <Route 
+                path="/" 
+                element={
+                  <ProtectedRoute>
+                    <Navigate to="/dashboard" replace />
+                  </ProtectedRoute>
+                } 
+              />
 
               {/* 404 Route */}
               <Route 
@@ -181,34 +193,35 @@ function App() {
                   </div>
                 } 
               />
-            </Routes>
-            </Router>
+                </Routes>
+              </Router>
 
-            {/* Toast Notifications */}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 3000,
-              style: {
-                background: 'hsl(var(--card))',
-                color: 'hsl(var(--card-foreground))',
-                border: '1px solid hsl(var(--border))',
-              },
-              success: {
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#fff',
-                },
-              },
-              error: {
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
-                },
-              },
-            }}
-          />
-          </HouseholdProvider>
+              {/* Toast Notifications */}
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 3000,
+                  style: {
+                    background: 'hsl(var(--card))',
+                    color: 'hsl(var(--card-foreground))',
+                    border: '1px solid hsl(var(--border))',
+                  },
+                  success: {
+                    iconTheme: {
+                      primary: '#10b981',
+                      secondary: '#fff',
+                    },
+                  },
+                  error: {
+                    iconTheme: {
+                      primary: '#ef4444',
+                      secondary: '#fff',
+                    },
+                  },
+                }}
+              />
+            </HouseholdProvider>
+          </AuthHandler>
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>

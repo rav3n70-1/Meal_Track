@@ -9,16 +9,18 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import Loading from '../components/ui/Loading';
+import NicknameModal from '../components/ui/NicknameModal';
 import toast from 'react-hot-toast';
 
 const Setup = () => {
-  const { userProfile } = useAuth();
-  const { createHousehold, joinHousehold, loading } = useHousehold();
+  const { currentUser, userProfile } = useAuth();
+  const { createHousehold, joinHousehold, household, loading } = useHousehold();
   const navigate = useNavigate();
   const [mode, setMode] = useState(null); // 'create' or 'join'
   const [householdName, setHouseholdName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showNicknameModal, setShowNicknameModal] = useState(false);
 
   useEffect(() => {
     // If user already has a household, redirect to dashboard
@@ -38,11 +40,11 @@ const Setup = () => {
     try {
       await createHousehold(householdName);
       toast.success('Household created successfully!');
-      navigate('/dashboard');
+      // Show nickname modal
+      setShowNicknameModal(true);
     } catch (error) {
       console.error('Error creating household:', error);
       toast.error('Failed to create household');
-    } finally {
       setSubmitting(false);
     }
   };
@@ -58,11 +60,11 @@ const Setup = () => {
     try {
       await joinHousehold(inviteCode);
       toast.success('Joined household successfully!');
-      navigate('/dashboard');
+      // Show nickname modal
+      setShowNicknameModal(true);
     } catch (error) {
       console.error('Error joining household:', error);
       toast.error(error.message || 'Failed to join household');
-    } finally {
       setSubmitting(false);
     }
   };
@@ -163,7 +165,7 @@ const Setup = () => {
                   label="Household Name"
                   value={householdName}
                   onChange={(e) => setHouseholdName(e.target.value)}
-                  placeholder="e.g., Smith Family, Apartment 5B"
+                  placeholder="e.g., Apartment name"
                   icon={<Home size={18} />}
                   required
                 />
@@ -229,6 +231,20 @@ const Setup = () => {
           </Card>
         )}
       </motion.div>
+
+      {/* Nickname Setup Modal */}
+      <NicknameModal
+        isOpen={showNicknameModal}
+        onClose={() => {
+          setShowNicknameModal(false);
+          setSubmitting(false);
+          navigate('/dashboard');
+        }}
+        currentUser={currentUser}
+        userProfile={userProfile}
+        household={household}
+        onSuccess={() => navigate('/dashboard')}
+      />
     </div>
   );
 };

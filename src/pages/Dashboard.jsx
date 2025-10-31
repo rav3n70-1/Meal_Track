@@ -1,13 +1,15 @@
 // Main dashboard page with different views for manager and members
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Receipt, TrendingUp, Users } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Receipt, TrendingUp, Users, Plus } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import StatsCard from '../components/Dashboard/StatsCard';
 import PendingApprovals from '../components/Dashboard/PendingApprovals';
 import BalanceChart from '../components/Dashboard/BalanceChart';
 import ExpenseChart from '../components/Dashboard/ExpenseChart';
 import BalanceSummary from '../components/Dashboard/BalanceSummary';
+import Modal from '../components/ui/Modal';
+import ExpenseForm from '../components/Expenses/ExpenseForm';
 import { useHousehold } from '../context/HouseholdContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -24,6 +26,7 @@ const Dashboard = () => {
   const { household, members, expenses, loading, getUserRole } = useHousehold();
   const { t } = useLanguage();
   const role = getUserRole();
+  const [showAddExpense, setShowAddExpense] = useState(false);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -157,6 +160,32 @@ const Dashboard = () => {
         {/* Balance Summary */}
         <BalanceSummary balances={memberBalances} />
       </div>
+
+      {/* Floating Add Expense Button */}
+      <motion.button
+        onClick={() => setShowAddExpense(true)}
+        className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-full shadow-lg hover:shadow-xl flex items-center justify-center z-50 group"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+      >
+        <Plus size={28} className="group-hover:rotate-90 transition-transform duration-300" />
+      </motion.button>
+
+      {/* Add Expense Modal */}
+      <Modal
+        isOpen={showAddExpense}
+        onClose={() => setShowAddExpense(false)}
+        title="Add New Expense"
+        size="lg"
+      >
+        <ExpenseForm
+          onSuccess={() => setShowAddExpense(false)}
+          onCancel={() => setShowAddExpense(false)}
+        />
+      </Modal>
     </Layout>
   );
 };

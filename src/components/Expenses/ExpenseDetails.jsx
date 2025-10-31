@@ -7,12 +7,12 @@ import {
   CheckCircle, 
   XCircle, 
   Calendar,
-  DollarSign,
   User,
   Users,
   FileText,
   Clock
 } from 'lucide-react';
+import { getDisplayName } from '../../utils/displayName';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -151,7 +151,7 @@ const ExpenseDetails = ({ expense, isOpen, onClose }) => {
         <div className="space-y-2">
           <h3 className="text-2xl font-bold">{expense.item}</h3>
           <div className="flex items-center gap-2 text-3xl font-bold text-primary">
-            <DollarSign size={28} />
+            <span className="text-2xl">৳</span>
             {parseFloat(expense.amount).toFixed(2)}
           </div>
         </div>
@@ -178,11 +178,11 @@ const ExpenseDetails = ({ expense, isOpen, onClose }) => {
                 {buyer?.photoURL && (
                   <img 
                     src={buyer.photoURL} 
-                    alt={buyer.name}
+                    alt={getDisplayName(buyer)}
                     className="w-5 h-5 rounded-full"
                   />
                 )}
-                <p className="font-medium">{buyer?.name || 'Unknown'}</p>
+                <p className="font-medium">{getDisplayName(buyer)}</p>
               </div>
             </div>
           </div>
@@ -204,14 +204,14 @@ const ExpenseDetails = ({ expense, isOpen, onClose }) => {
                   {member?.photoURL && (
                     <img 
                       src={member.photoURL} 
-                      alt={member.name}
+                      alt={getDisplayName(member)}
                       className="w-6 h-6 rounded-full"
                     />
                   )}
-                  <span className="text-sm font-medium">{member?.name || 'Unknown'}</span>
+                  <span className="text-sm font-medium">{getDisplayName(member)}</span>
                 </div>
                 <span className="text-sm text-muted-foreground">
-                  ${sharePerPerson.toFixed(2)}
+                  ৳{sharePerPerson.toFixed(2)}
                 </span>
               </div>
             ))}

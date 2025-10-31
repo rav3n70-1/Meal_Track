@@ -1,12 +1,13 @@
 // Component for managers to see and approve pending expenses
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, CheckCircle, XCircle, Calendar, DollarSign } from 'lucide-react';
+import { Clock, CheckCircle, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import ExpenseDetails from '../Expenses/ExpenseDetails';
 import { useHousehold } from '../../context/HouseholdContext';
+import { getDisplayName } from '../../utils/displayName';
 
 const PendingApprovals = ({ expenses }) => {
   const { members } = useHousehold();
@@ -64,10 +65,9 @@ const PendingApprovals = ({ expenses }) => {
                       <Calendar size={14} />
                       {format(new Date(expense.date), 'MMM dd')}
                     </span>
-                    <span>by {buyer?.name || 'Unknown'}</span>
+                    <span>by {getDisplayName(buyer)}</span>
                     <span className="flex items-center gap-1 font-semibold text-foreground">
-                      <DollarSign size={14} />
-                      {parseFloat(expense.amount).toFixed(2)}
+                      ৳{parseFloat(expense.amount).toFixed(2)}
                     </span>
                   </div>
                 </div>

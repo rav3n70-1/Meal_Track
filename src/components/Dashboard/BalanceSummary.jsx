@@ -1,7 +1,7 @@
 // Component showing who owes whom
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, DollarSign } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { calculateDebts } from '../../utils/calculations';
 
@@ -40,9 +40,8 @@ const BalanceSummary = ({ balances }) => {
               <ArrowRight className="text-muted-foreground" size={18} />
               <span className="font-medium">{debt.toName}</span>
             </div>
-            <div className="flex items-center gap-1 font-bold text-primary">
-              <DollarSign size={18} />
-              {debt.amount.toFixed(2)}
+            <div className="flex items-center gap-1 font-bold text-primary text-lg">
+              ৳{debt.amount.toFixed(2)}
             </div>
           </motion.div>
         ))}

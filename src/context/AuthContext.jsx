@@ -2,7 +2,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   onAuthStateChanged, 
-  signInWithPopup, 
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut 
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -26,29 +28,45 @@ export const AuthProvider = ({ children }) => {
   // Sign in with Google
   const signInWithGoogle = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      // Use redirect for mobile, popup for desktop
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       
-      // Create or update user profile in Firestore
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (!userSnap.exists()) {
-        // New user - create profile
-        await setDoc(userRef, {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          createdAt: new Date().toISOString(),
-          householdId: null
-        });
+      if (isMobile) {
+        // On mobile, use redirect method (better compatibility)
+        await signInWithRedirect(auth, googleProvider);
+        // User will be redirected away, then back
+        // The redirect result will be handled in the useEffect below
+      } else {
+        // On desktop, use popup (better UX)
+        const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
+        
+        // Create or update user profile in Firestore
+        await createUserProfile(user);
+        
+        return user;
       }
-      
-      return user;
     } catch (error) {
       console.error('Error signing in with Google:', error);
       throw error;
+    }
+  };
+
+  // Helper function to create user profile
+  const createUserProfile = async (user) => {
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      // New user - create profile
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        createdAt: new Date().toISOString(),
+        householdId: null
+      });
     }
   };
 
@@ -91,6 +109,23 @@ export const AuthProvider = ({ children }) => {
       console.error('Error loading user profile:', error);
     }
   };
+
+  // Handle redirect result (for mobile sign-in)
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          // User just signed in via redirect
+          await createUserProfile(result.user);
+        }
+      } catch (error) {
+        console.error('Error handling redirect:', error);
+      }
+    };
+
+    handleRedirectResult();
+  }, []);
 
   // Listen to auth state changes
   useEffect(() => {

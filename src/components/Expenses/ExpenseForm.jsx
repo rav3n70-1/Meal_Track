@@ -7,7 +7,8 @@ import { useHousehold } from '../../context/HouseholdContext';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
-import { Calendar, DollarSign, ShoppingBag } from 'lucide-react';
+import { Calendar, ShoppingBag } from 'lucide-react';
+import { getDisplayName } from '../../utils/displayName';
 import toast from 'react-hot-toast';
 
 const ExpenseForm = ({ onSuccess, onCancel }) => {
@@ -105,19 +106,19 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
       <Input
         label="Item Name"
         name="item"
         value={formData.item}
         onChange={handleChange}
-        placeholder="e.g., Groceries, Lunch, Dinner"
+        placeholder="e.g., Groceries, Food etc."
         icon={<ShoppingBag size={18} />}
         required
       />
 
       <Input
-        label="Amount"
+        label="Amount (৳)"
         name="amount"
         type="number"
         step="0.01"
@@ -125,7 +126,7 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
         value={formData.amount}
         onChange={handleChange}
         placeholder="0.00"
-        icon={<DollarSign size={18} />}
+        icon={<span className="text-primary font-bold">৳</span>}
         required
       />
 
@@ -136,7 +137,7 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
         onChange={handleChange}
         options={members.map(member => ({
           value: member.uid,
-          label: member.name
+          label: getDisplayName(member)
         }))}
         required
       />
@@ -153,21 +154,33 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
 
       <div className="space-y-2">
         <label className="text-sm font-medium leading-none">
-          Shared Among (Hold Ctrl/Cmd to select multiple)
+          Shared Among
         </label>
-        <select
-          multiple
-          value={formData.sharedAmong}
-          onChange={handleSharedAmongChange}
-          className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          required
-        >
+        <div className="border border-input rounded-md p-3 space-y-2 max-h-[200px] overflow-y-auto">
           {members.map(member => (
-            <option key={member.uid} value={member.uid}>
-              {member.name}
-            </option>
+            <label 
+              key={member.uid} 
+              className="flex items-center gap-2 cursor-pointer hover:bg-accent p-2 rounded transition-colors"
+            >
+              <input
+                type="checkbox"
+                value={member.uid}
+                checked={formData.sharedAmong.includes(member.uid)}
+                onChange={(e) => {
+                  const uid = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    sharedAmong: e.target.checked
+                      ? [...prev.sharedAmong, uid]
+                      : prev.sharedAmong.filter(id => id !== uid)
+                  }));
+                }}
+                className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary focus:ring-2"
+              />
+              <span className="text-sm">{getDisplayName(member)}</span>
+            </label>
           ))}
-        </select>
+        </div>
         <p className="text-xs text-muted-foreground">
           Selected: {formData.sharedAmong.length} member(s)
         </p>

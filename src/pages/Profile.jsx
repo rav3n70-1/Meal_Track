@@ -1,22 +1,30 @@
 // User Profile page with balance management
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Calendar, Award, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { User, Mail, Calendar, Award, TrendingUp, TrendingDown, Edit } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
+import NicknameModal from '../components/ui/NicknameModal';
 import { useAuth } from '../context/AuthContext';
 import { useHousehold } from '../context/HouseholdContext';
 import { useLanguage } from '../context/LanguageContext';
 import { calculateBalances } from '../utils/calculations';
+import { getDisplayName, getFullName } from '../utils/displayName';
 import Loading from '../components/ui/Loading';
 
 const Profile = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { household, members, expenses, loading, getUserRole } = useHousehold();
   const { t } = useLanguage();
   const role = getUserRole();
+  const [showNicknameModal, setShowNicknameModal] = useState(false);
+
+  // Get current member data (includes nickname)
+  const currentMember = useMemo(() => {
+    return members.find(m => m.uid === currentUser?.uid);
+  }, [members, currentUser]);
 
   // Calculate user's balance
   const myBalance = useMemo(() => {
@@ -84,8 +92,31 @@ const Profile = () => {
               {/* Info */}
               <div className="flex-1 space-y-3">
                 <div>
-                  <h2 className="text-2xl font-bold">{currentUser?.displayName}</h2>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      {currentMember?.nickname && (
+                        <p className="text-sm text-muted-foreground">Nickname:</p>
+                      )}
+                      <h2 className="text-2xl font-bold">
+                        {getDisplayName(currentMember)}
+                      </h2>
+                      {currentMember?.nickname && (
+                        <p className="text-sm text-muted-foreground">
+                          Full name: {getFullName(currentMember)}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowNicknameModal(true)}
+                      icon={<Edit size={16} />}
+                      className="ml-auto"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
                     <Mail size={16} className="text-muted-foreground" />
                     <p className="text-muted-foreground">{currentUser?.email}</p>
                   </div>
@@ -293,6 +324,16 @@ const Profile = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Nickname Modal */}
+        <NicknameModal
+          isOpen={showNicknameModal}
+          onClose={() => setShowNicknameModal(false)}
+          currentUser={currentUser}
+          userProfile={userProfile}
+          household={household}
+          onSuccess={() => window.location.reload()}
+        />
 
         {/* Quick Actions */}
         <Card>

@@ -7,6 +7,7 @@ import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { useHousehold } from '../context/HouseholdContext';
+import { getDisplayName, getFullName } from '../utils/displayName';
 import Loading from '../components/ui/Loading';
 import toast from 'react-hot-toast';
 
@@ -107,12 +108,21 @@ const Members = () => {
                     {/* Info */}
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{member.name}</h3>
-                        {member.role === 'manager' && (
-                          <Crown className="text-yellow-500" size={16} />
-                        )}
+                        <div>
+                          <h3 className="font-semibold flex items-center gap-2">
+                            {getDisplayName(member)}
+                            {member.role === 'manager' && (
+                              <Crown className="text-yellow-500" size={16} />
+                            )}
+                          </h3>
+                          {member.nickname && (
+                            <p className="text-xs text-muted-foreground">
+                              Full name: {getFullName(member)}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                         <Mail size={14} />
                         {member.email}
                       </div>

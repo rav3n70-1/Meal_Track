@@ -1,31 +1,71 @@
 // Login page with Google Sign-In
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { LogIn, DollarSign } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { getRedirectResult } from 'firebase/auth';
+import { auth } from '../firebase/config';
 import Button from '../components/ui/Button';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import Loading from '../components/ui/Loading';
 import toast from 'react-hot-toast';
 
 const Login = () => {
   const { signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [checkingRedirect, setCheckingRedirect] = useState(true);
+
+  // Check for redirect result on mount (for mobile OAuth)
+  useEffect(() => {
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          // User just completed OAuth redirect
+          toast.success('Welcome! Setting up your account...');
+        }
+      } catch (error) {
+        console.error('Redirect error:', error);
+        if (error.code !== 'auth/popup-closed-by-user') {
+          toast.error('Sign in failed. Please try again.');
+        }
+      } finally {
+        setCheckingRedirect(false);
+      }
+    };
+
+    checkRedirect();
+  }, []);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
       await signInWithGoogle();
+      // On mobile, signInWithRedirect will redirect away from this page
+      // On desktop, popup completes and auth state updates
+      // In both cases, auth state change will handle routing
       toast.success('Welcome! Setting up your account...');
-      navigate('/setup');
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Failed to sign in. Please try again.');
-    } finally {
-      setLoading(false);
+      // Only show error and reset loading if it's not a redirect
+      if (error.code !== 'auth/cancelled-popup-request' && 
+          error.code !== 'auth/popup-closed-by-user') {
+        toast.error('Failed to sign in. Please try again.');
+        setLoading(false);
+      }
     }
   };
+
+  // Show loading while checking for redirect
+  if (checkingRedirect) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-primary/10">
+        <Loading text="Checking authentication..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-primary/10 p-4">
@@ -42,7 +82,7 @@ const Login = () => {
             transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
             className="inline-flex items-center justify-center w-20 h-20 bg-primary text-primary-foreground rounded-2xl mb-4 shadow-lg"
           >
-            <DollarSign size={48} />
+            <span className="text-6xl font-bold">৳</span>
           </motion.div>
           <h1 className="text-4xl font-bold mb-2">Meal Tracker</h1>
           <p className="text-muted-foreground">

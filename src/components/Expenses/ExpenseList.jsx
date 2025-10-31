@@ -7,7 +7,6 @@ import {
   XCircle, 
   Clock, 
   Calendar,
-  DollarSign,
   User,
   Users,
   FileText,
@@ -17,6 +16,7 @@ import Card, { CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Badge from '../ui/Badge';
 import Select from '../ui/Select';
 import { useHousehold } from '../../context/HouseholdContext';
+import { getDisplayName } from '../../utils/displayName';
 
 const ExpenseList = ({ expenses, onExpenseClick }) => {
   const { members } = useHousehold();
@@ -145,7 +145,7 @@ const ExpenseList = ({ expenses, onExpenseClick }) => {
                           </span>
                           <span className="flex items-center gap-1">
                             <User size={14} />
-                            {buyer?.name || 'Unknown'}
+                            {getDisplayName(buyer)}
                           </span>
                         </div>
                       </div>
@@ -163,7 +163,7 @@ const ExpenseList = ({ expenses, onExpenseClick }) => {
                       <Users size={14} />
                       <span>
                         Shared by {sharedMembers.length} member(s)
-                        {sharedMembers.length <= 3 && ': ' + sharedMembers.map(m => m?.name).join(', ')}
+                        {sharedMembers.length <= 3 && ': ' + sharedMembers.map(m => getDisplayName(m)).join(', ')}
                       </span>
                     </div>
                   </div>
@@ -171,7 +171,7 @@ const ExpenseList = ({ expenses, onExpenseClick }) => {
                   {/* Right Side - Amount and Status */}
                   <div className="flex sm:flex-col items-center sm:items-end gap-3 sm:gap-2">
                     <div className="flex items-center gap-1 text-2xl font-bold text-primary">
-                      <DollarSign size={20} />
+                      <span className="text-xl">৳</span>
                       {parseFloat(expense.amount).toFixed(2)}
                     </div>
                     <div className="hidden sm:block">{getStatusBadge(expense.status)}</div>

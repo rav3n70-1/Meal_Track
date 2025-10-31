@@ -1,5 +1,5 @@
 // Sidebar navigation component
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Home, 
@@ -20,6 +20,25 @@ const Sidebar = ({ isOpen, onClose }) => {
   const { getUserRole } = useHousehold();
   const { t } = useLanguage();
   const role = getUserRole();
+
+  // Track if we're on mobile/tablet for responsive sidebar
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // Check initial screen size
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+
+    // Check on mount
+    checkScreenSize();
+
+    // Add event listener for window resize
+    window.addEventListener('resize', checkScreenSize);
+
+    // Cleanup
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   const navigationItems = [
     { path: '/dashboard', label: t('dashboard'), icon: Home },
@@ -55,10 +74,10 @@ const Sidebar = ({ isOpen, onClose }) => {
       <motion.aside
         initial={false}
         animate={{
-          x: isOpen ? 0 : -280,
+          x: isMobile ? (isOpen ? 0 : -280) : 0,
         }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="fixed left-0 top-16 bottom-0 w-64 bg-card border-r border-border z-40 overflow-y-auto lg:translate-x-0"
+        className="fixed left-0 top-16 bottom-0 w-64 bg-card border-r border-border z-40 overflow-y-auto"
       >
         <nav className="p-4 space-y-2">
           {role && (
