@@ -1,17 +1,18 @@
-// Authentication Context for managing user authentication state
+// Authentication Context Provider
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   onAuthStateChanged, 
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
-  signOut as firebaseSignOut 
+  signOut as firebaseSignOut
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase/config';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
+// Custom hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -24,139 +25,210 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [initializing, setInitializing] = useState(true);
 
-  // Sign in with Google
-  const signInWithGoogle = async () => {
-    try {
-      // Use redirect for mobile, popup for desktop
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        // On mobile, use redirect method (better compatibility)
-        await signInWithRedirect(auth, googleProvider);
-        // User will be redirected away, then back
-        // The redirect result will be handled in the useEffect below
-      } else {
-        // On desktop, use popup (better UX)
-        const result = await signInWithPopup(auth, googleProvider);
-        const user = result.user;
-        
-        // Create or update user profile in Firestore
-        await createUserProfile(user);
-        
-        return user;
-      }
-    } catch (error) {
-      console.error('Error signing in with Google:', error);
-      throw error;
-    }
+  // Detect if user is on mobile device
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   };
 
-  // Helper function to create user profile
-  const createUserProfile = async (user) => {
-    const userRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userRef);
-    
-    if (!userSnap.exists()) {
-      // New user - create profile
-      await setDoc(userRef, {
+  // Create or update user profile in Firestore
+  const createOrUpdateUserProfile = async (user) => {
+    if (!user) return null;
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+
+      const userData = {
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        createdAt: new Date().toISOString(),
-        householdId: null
-      });
-    }
-  };
+        displayName: user.displayName || user.email?.split('@')[0] || 'User',
+        photoURL: user.photoURL || null,
+        lastLogin: serverTimestamp(),
+      };
 
-  // Sign out
-  const signOut = async () => {
-    try {
-      await firebaseSignOut(auth);
-      setUserProfile(null);
+      if (!userSnap.exists()) {
+        // New user - create profile
+        await setDoc(userRef, {
+          ...userData,
+          createdAt: serverTimestamp(),
+          householdId: null,
+        });
+        console.log('[Auth] New user profile created');
+      } else {
+        // Existing user - update last login
+        await setDoc(userRef, userData, { merge: true });
+        console.log('[Auth] User profile updated');
+      }
+
+      // Fetch and return the profile
+      const updatedSnap = await getDoc(userRef);
+      return updatedSnap.data();
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('[Auth] Error creating/updating user profile:', error);
       throw error;
     }
   };
 
   // Load user profile from Firestore
   const loadUserProfile = async (uid) => {
+    if (!uid) {
+      setUserProfile(null);
+      return null;
+    }
+
     try {
       const userRef = doc(db, 'users', uid);
       const userSnap = await getDoc(userRef);
-      
+
       if (userSnap.exists()) {
-        setUserProfile(userSnap.data());
+        const profile = userSnap.data();
+        setUserProfile(profile);
+        return profile;
       } else {
-        // If profile doesn't exist, create it
+        // Profile doesn't exist, create it
         const user = auth.currentUser;
         if (user) {
-          const newProfile = {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
-            createdAt: new Date().toISOString(),
-            householdId: null
-          };
-          await setDoc(userRef, newProfile);
+          const newProfile = await createOrUpdateUserProfile(user);
           setUserProfile(newProfile);
+          return newProfile;
         }
       }
     } catch (error) {
-      console.error('Error loading user profile:', error);
+      console.error('[Auth] Error loading user profile:', error);
+      return null;
     }
   };
 
-  // Handle redirect result (for mobile sign-in)
+  // Sign in with Google
+  const signInWithGoogle = async () => {
+    try {
+      setLoading(true);
+      const isMobile = isMobileDevice();
+
+      console.log('[Auth] Starting Google sign-in', { isMobile });
+
+      if (isMobile) {
+        // Use redirect flow for mobile (better compatibility)
+        await signInWithRedirect(auth, googleProvider);
+        // Note: signInWithRedirect will redirect away from the page
+        // The result will be handled in the redirect effect below
+      } else {
+        // Use popup flow for desktop (better UX)
+        const result = await signInWithPopup(auth, googleProvider);
+        
+        if (result.user) {
+          console.log('[Auth] Popup sign-in successful');
+          const profile = await createOrUpdateUserProfile(result.user);
+          setUserProfile(profile);
+          setCurrentUser(result.user);
+        }
+      }
+    } catch (error) {
+      console.error('[Auth] Sign-in error:', error);
+      setLoading(false);
+      
+      // Handle specific errors
+      if (error.code === 'auth/popup-closed-by-user') {
+        throw new Error('Sign-in cancelled');
+      } else if (error.code === 'auth/popup-blocked') {
+        throw new Error('Pop-up blocked. Please allow pop-ups for this site.');
+      } else {
+        throw error;
+      }
+    }
+  };
+
+  // Sign out
+  const signOut = async () => {
+    try {
+      console.log('[Auth] Signing out...');
+      await firebaseSignOut(auth);
+      setCurrentUser(null);
+      setUserProfile(null);
+      console.log('[Auth] Sign-out successful');
+    } catch (error) {
+      console.error('[Auth] Sign-out error:', error);
+      throw error;
+    }
+  };
+
+  // Handle redirect result (for mobile OAuth)
   useEffect(() => {
-    const handleRedirectResult = async () => {
+    let mounted = true;
+
+    const handleRedirect = async () => {
       try {
+        console.log('[Auth] Checking for redirect result...');
         const result = await getRedirectResult(auth);
-        if (result?.user) {
-          // User just signed in via redirect
-          await createUserProfile(result.user);
+        
+        if (result && result.user && mounted) {
+          console.log('[Auth] Redirect sign-in successful');
+          const profile = await createOrUpdateUserProfile(result.user);
+          if (mounted) {
+            setUserProfile(profile);
+            setCurrentUser(result.user);
+          }
         }
       } catch (error) {
-        console.error('Error handling redirect:', error);
+        console.error('[Auth] Redirect error:', error);
+      } finally {
+        if (mounted) {
+          setInitializing(false);
+        }
       }
     };
 
-    handleRedirectResult();
+    handleRedirect();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // Listen to auth state changes
+  // Listen to authentication state changes
   useEffect(() => {
+    console.log('[Auth] Setting up auth state listener');
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      
+      console.log('[Auth] Auth state changed:', { 
+        hasUser: !!user, 
+        email: user?.email 
+      });
+
       if (user) {
+        // User is signed in
+        setCurrentUser(user);
         await loadUserProfile(user.uid);
       } else {
+        // User is signed out
+        setCurrentUser(null);
         setUserProfile(null);
       }
-      
+
       setLoading(false);
+      setInitializing(false);
     });
 
-    return unsubscribe;
+    return () => {
+      console.log('[Auth] Cleaning up auth state listener');
+      unsubscribe();
+    };
   }, []);
 
   const value = {
     currentUser,
     userProfile,
-    loading,
+    loading: loading || initializing,
     signInWithGoogle,
     signOut,
-    loadUserProfile
+    loadUserProfile,
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
-

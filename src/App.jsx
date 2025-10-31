@@ -1,11 +1,16 @@
-// Main App component with routing and context providers
+// Main Application Component
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+
+// Context Providers
 import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { HouseholdProvider } from './context/HouseholdContext';
+
+// Components
+import AuthHandler from './components/AuthHandler';
 
 // Pages
 import Login from './pages/Login';
@@ -17,33 +22,36 @@ import Members from './pages/Members';
 import Reports from './pages/Reports';
 import Activity from './pages/Activity';
 import Settings from './pages/Settings';
-import AuthHandler from './components/AuthHandler';
 
-// Protected Route component
+// Loading Component
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="text-center">
+      <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
+      <p className="text-muted-foreground">Loading...</p>
+    </div>
+  </div>
+);
+
+// Protected Route - Only for authenticated users
 const ProtectedRoute = ({ children }) => {
   const { currentUser, userProfile, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <PageLoader />;
   }
 
+  // Not authenticated - redirect to login
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
 
-  // If user doesn't have a household, redirect to setup
+  // Authenticated but no household - redirect to setup (except if already on setup page)
   if (!userProfile?.householdId && window.location.pathname !== '/setup') {
     return <Navigate to="/setup" replace />;
   }
 
-  // If user has household but trying to access setup, redirect to dashboard
+  // Has household but trying to access setup - redirect to dashboard
   if (userProfile?.householdId && window.location.pathname === '/setup') {
     return <Navigate to="/dashboard" replace />;
   }
@@ -51,24 +59,16 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// Public Route component (only accessible when not logged in)
+// Public Route - Only for non-authenticated users
 const PublicRoute = ({ children }) => {
   const { currentUser, userProfile, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <PageLoader />;
   }
 
+  // Already authenticated - redirect based on household status
   if (currentUser) {
-    // If user has household, go to dashboard
-    // If no household, go to setup
     const destination = userProfile?.householdId ? '/dashboard' : '/setup';
     return <Navigate to={destination} replace />;
   }
@@ -85,114 +85,118 @@ function App() {
             <HouseholdProvider>
               <Router>
                 <Routes>
-              {/* Public Routes */}
-              <Route 
-                path="/login" 
-                element={
-                  <PublicRoute>
-                    <Login />
-                  </PublicRoute>
-                } 
-              />
+                  {/* Public Route - Login */}
+                  <Route 
+                    path="/login" 
+                    element={
+                      <PublicRoute>
+                        <Login />
+                      </PublicRoute>
+                    } 
+                  />
 
-              {/* Protected Routes */}
-              <Route 
-                path="/setup" 
-                element={
-                  <ProtectedRoute>
-                    <Setup />
-                  </ProtectedRoute>
-                } 
-              />
+                  {/* Protected Route - Setup */}
+                  <Route 
+                    path="/setup" 
+                    element={
+                      <ProtectedRoute>
+                        <Setup />
+                      </ProtectedRoute>
+                    } 
+                  />
 
-              <Route 
-                path="/dashboard" 
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                } 
-              />
+                  {/* Protected Routes - Main App */}
+                  <Route 
+                    path="/dashboard" 
+                    element={
+                      <ProtectedRoute>
+                        <Dashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
 
-              <Route 
-                path="/profile" 
-                element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                } 
-              />
+                  <Route 
+                    path="/profile" 
+                    element={
+                      <ProtectedRoute>
+                        <Profile />
+                      </ProtectedRoute>
+                    } 
+                  />
 
-              <Route 
-                path="/expenses" 
-                element={
-                  <ProtectedRoute>
-                    <Expenses />
-                  </ProtectedRoute>
-                } 
-              />
+                  <Route 
+                    path="/expenses" 
+                    element={
+                      <ProtectedRoute>
+                        <Expenses />
+                      </ProtectedRoute>
+                    } 
+                  />
 
-              <Route 
-                path="/members" 
-                element={
-                  <ProtectedRoute>
-                    <Members />
-                  </ProtectedRoute>
-                } 
-              />
+                  <Route 
+                    path="/members" 
+                    element={
+                      <ProtectedRoute>
+                        <Members />
+                      </ProtectedRoute>
+                    } 
+                  />
 
-              <Route 
-                path="/reports" 
-                element={
-                  <ProtectedRoute>
-                    <Reports />
-                  </ProtectedRoute>
-                } 
-              />
+                  <Route 
+                    path="/reports" 
+                    element={
+                      <ProtectedRoute>
+                        <Reports />
+                      </ProtectedRoute>
+                    } 
+                  />
 
-              <Route 
-                path="/activity" 
-                element={
-                  <ProtectedRoute>
-                    <Activity />
-                  </ProtectedRoute>
-                } 
-              />
+                  <Route 
+                    path="/activity" 
+                    element={
+                      <ProtectedRoute>
+                        <Activity />
+                      </ProtectedRoute>
+                    } 
+                  />
 
-              <Route 
-                path="/settings" 
-                element={
-                  <ProtectedRoute>
-                    <Settings />
-                  </ProtectedRoute>
-                } 
-              />
+                  <Route 
+                    path="/settings" 
+                    element={
+                      <ProtectedRoute>
+                        <Settings />
+                      </ProtectedRoute>
+                    } 
+                  />
 
-              {/* Default Route - Check Auth First */}
-              <Route 
-                path="/" 
-                element={
-                  <ProtectedRoute>
-                    <Navigate to="/dashboard" replace />
-                  </ProtectedRoute>
-                } 
-              />
+                  {/* Root Route */}
+                  <Route 
+                    path="/" 
+                    element={
+                      <ProtectedRoute>
+                        <Navigate to="/dashboard" replace />
+                      </ProtectedRoute>
+                    } 
+                  />
 
-              {/* 404 Route */}
-              <Route 
-                path="*" 
-                element={
-                  <div className="min-h-screen flex items-center justify-center bg-background">
-                    <div className="text-center">
-                      <h1 className="text-6xl font-bold text-primary mb-4">404</h1>
-                      <p className="text-xl text-muted-foreground mb-4">Page not found</p>
-                      <a href="/" className="text-primary hover:underline">
-                        Go back home
-                      </a>
-                    </div>
-                  </div>
-                } 
-              />
+                  {/* 404 Route */}
+                  <Route 
+                    path="*" 
+                    element={
+                      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-primary/10">
+                        <div className="text-center">
+                          <h1 className="text-8xl font-bold text-primary mb-4">404</h1>
+                          <p className="text-2xl text-muted-foreground mb-8">Oops! Page not found</p>
+                          <a 
+                            href="/" 
+                            className="inline-flex items-center px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                          >
+                            Go back home
+                          </a>
+                        </div>
+                      </div>
+                    } 
+                  />
                 </Routes>
               </Router>
 
@@ -200,22 +204,30 @@ function App() {
               <Toaster
                 position="top-right"
                 toastOptions={{
-                  duration: 3000,
+                  duration: 4000,
                   style: {
                     background: 'hsl(var(--card))',
                     color: 'hsl(var(--card-foreground))',
                     border: '1px solid hsl(var(--border))',
+                    borderRadius: '0.5rem',
+                    padding: '1rem',
                   },
                   success: {
                     iconTheme: {
                       primary: '#10b981',
-                      secondary: '#fff',
+                      secondary: '#ffffff',
                     },
                   },
                   error: {
                     iconTheme: {
                       primary: '#ef4444',
-                      secondary: '#fff',
+                      secondary: '#ffffff',
+                    },
+                  },
+                  loading: {
+                    iconTheme: {
+                      primary: '#3b82f6',
+                      secondary: '#ffffff',
                     },
                   },
                 }}
@@ -229,4 +241,3 @@ function App() {
 }
 
 export default App;
-

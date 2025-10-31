@@ -1,136 +1,185 @@
-// Login page with Google Sign-In
-import React, { useState, useEffect } from 'react';
+// Login Page Component
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { LogIn } from 'lucide-react';
+import { LogIn, Utensils, Users, TrendingUp, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { getRedirectResult } from 'firebase/auth';
-import { auth } from '../firebase/config';
 import Button from '../components/ui/Button';
-import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import Loading from '../components/ui/Loading';
+import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import toast from 'react-hot-toast';
 
 const Login = () => {
   const { signInWithGoogle } = useAuth();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [checkingRedirect, setCheckingRedirect] = useState(true);
-
-  // Check for redirect result on mount (for mobile OAuth)
-  useEffect(() => {
-    const checkRedirect = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          // User just completed OAuth redirect
-          toast.success('Welcome! Setting up your account...');
-        }
-      } catch (error) {
-        console.error('Redirect error:', error);
-        if (error.code !== 'auth/popup-closed-by-user') {
-          toast.error('Sign in failed. Please try again.');
-        }
-      } finally {
-        setCheckingRedirect(false);
-      }
-    };
-
-    checkRedirect();
-  }, []);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
-    setLoading(true);
+    setIsLoading(true);
+    
     try {
       await signInWithGoogle();
-      // On mobile, signInWithRedirect will redirect away from this page
-      // On desktop, popup completes and auth state updates
-      // In both cases, auth state change will handle routing
       toast.success('Welcome! Setting up your account...');
     } catch (error) {
-      console.error('Login error:', error);
-      // Only show error and reset loading if it's not a redirect
-      if (error.code !== 'auth/cancelled-popup-request' && 
-          error.code !== 'auth/popup-closed-by-user') {
+      console.error('[Login] Error:', error);
+      
+      // User-friendly error messages
+      if (error.message === 'Sign-in cancelled') {
+        toast.error('Sign-in was cancelled');
+      } else if (error.message.includes('popup')) {
+        toast.error('Please enable pop-ups for this site');
+      } else {
         toast.error('Failed to sign in. Please try again.');
-        setLoading(false);
       }
+      
+      setIsLoading(false);
     }
   };
 
-  // Show loading while checking for redirect
-  if (checkingRedirect) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-primary/10">
-        <Loading text="Checking authentication..." />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-primary/10 p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <div className="text-center mb-8">
+      <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+        {/* Left Side - Branding & Features */}
+        <motion.div
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center lg:text-left"
+        >
+          {/* Logo */}
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-            className="inline-flex items-center justify-center w-20 h-20 bg-primary text-primary-foreground rounded-2xl mb-4 shadow-lg"
+            className="inline-flex items-center justify-center w-24 h-24 bg-primary text-primary-foreground rounded-3xl mb-6 shadow-2xl"
           >
             <span className="text-6xl font-bold">৳</span>
           </motion.div>
-          <h1 className="text-4xl font-bold mb-2">Meal Tracker</h1>
-          <p className="text-muted-foreground">
-            Track and manage shared meal expenses with your household
-          </p>
-        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-center">Welcome!</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-3">
+          {/* Title */}
+          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Meal Tracker
+          </h1>
+          <p className="text-xl text-muted-foreground mb-8">
+            The smart way to track and manage shared meal expenses with your household
+          </p>
+
+          {/* Features */}
+          <div className="space-y-4">
+            <FeatureItem 
+              icon={<Utensils className="w-6 h-6" />}
+              title="Track Meals"
+              description="Log daily meals and expenses effortlessly"
+            />
+            <FeatureItem 
+              icon={<Users className="w-6 h-6" />}
+              title="Manage Members"
+              description="Add up to 10 household members"
+            />
+            <FeatureItem 
+              icon={<TrendingUp className="w-6 h-6" />}
+              title="Auto Calculate"
+              description="Automatic balance calculations and settlements"
+            />
+            <FeatureItem 
+              icon={<Smartphone className="w-6 h-6" />}
+              title="Mobile Ready"
+              description="Works perfectly on all devices"
+            />
+          </div>
+        </motion.div>
+
+        {/* Right Side - Login Card */}
+        <motion.div
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <Card className="shadow-2xl">
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl">Welcome Back!</CardTitle>
+              <CardDescription className="text-base mt-2">
+                Sign in to access your household meal tracker
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="space-y-6">
+              {/* Google Sign In Button */}
               <Button
                 onClick={handleGoogleSignIn}
-                disabled={loading}
-                className="w-full"
+                disabled={isLoading}
+                className="w-full h-14 text-lg"
                 size="lg"
-                icon={<LogIn size={20} />}
+                icon={<LogIn size={24} />}
               >
-                {loading ? 'Signing in...' : 'Sign in with Google'}
+                {isLoading ? 'Signing in...' : 'Sign in with Google'}
               </Button>
-            </div>
 
-            <div className="text-center text-sm text-muted-foreground">
-              <p>Sign in to create or join a household</p>
-            </div>
-          </CardContent>
-        </Card>
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-card text-muted-foreground">
+                    Secure authentication via Google
+                  </span>
+                </div>
+              </div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-8 text-center text-sm text-muted-foreground"
-        >
-          <p className="mb-2">✨ Features</p>
-          <ul className="space-y-1">
-            <li>📊 Track shared meal expenses</li>
-            <li>👥 Manage up to 10 household members</li>
-            <li>💰 Automatic balance calculations</li>
-            <li>📱 Works on mobile and desktop</li>
-          </ul>
+              {/* Info */}
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                <p className="text-sm text-center text-muted-foreground">
+                  By signing in, you can create or join a household to start tracking meals together
+                </p>
+              </div>
+
+              {/* Benefits */}
+              <div className="grid grid-cols-2 gap-4 pt-4">
+                <BenefitBadge emoji="🔒" text="Secure" />
+                <BenefitBadge emoji="⚡" text="Fast" />
+                <BenefitBadge emoji="📱" text="Mobile" />
+                <BenefitBadge emoji="🆓" text="Free" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Footer Note */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+            className="text-center text-sm text-muted-foreground mt-6"
+          >
+            New here? Sign in to create your first household
+          </motion.p>
         </motion.div>
-      </motion.div>
+      </div>
     </div>
   );
 };
 
-export default Login;
+// Feature Item Component
+const FeatureItem = ({ icon, title, description }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.4 }}
+    className="flex items-start space-x-4"
+  >
+    <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+      {icon}
+    </div>
+    <div>
+      <h3 className="font-semibold text-lg mb-1">{title}</h3>
+      <p className="text-muted-foreground">{description}</p>
+    </div>
+  </motion.div>
+);
 
+// Benefit Badge Component
+const BenefitBadge = ({ emoji, text }) => (
+  <div className="flex items-center justify-center space-x-2 bg-background border border-border rounded-lg py-3">
+    <span className="text-2xl">{emoji}</span>
+    <span className="font-medium">{text}</span>
+  </div>
+);
+
+export default Login;

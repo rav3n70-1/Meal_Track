@@ -1,32 +1,23 @@
-// Authentication state handler component
-// This ensures auth state is properly loaded before rendering routes
-import React, { useEffect, useState } from 'react';
+// Authentication Handler Component
+// Provides a loading screen while authentication state is being determined
+import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import Loading from './ui/Loading';
 
 const AuthHandler = ({ children }) => {
-  const { loading: authLoading } = useAuth();
-  const [initializing, setInitializing] = useState(true);
+  const { loading } = useAuth();
 
-  useEffect(() => {
-    // Give auth state time to initialize
-    const timer = setTimeout(() => {
-      setInitializing(false);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (authLoading || initializing) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loading text="Initializing..." />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-primary/10">
+        <div className="text-center">
+          <Loading text="Loading your account..." />
+        </div>
       </div>
     );
   }
 
-  return children;
+  return <>{children}</>;
 };
 
 export default AuthHandler;
-
