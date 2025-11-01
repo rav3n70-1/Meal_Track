@@ -110,6 +110,107 @@ service cloud.firestore {
         allow delete: if isManager(householdId) || 
                         (resource.data.type == 'auto' && isMember(householdId));
       }
+      
+      // Recurring Templates subcollection
+      match /recurringTemplates/{templateId} {
+        // All household members can read recurring templates
+        allow read: if isMember(householdId);
+        
+        // Any household member can create recurring templates
+        allow create: if isMember(householdId) && 
+                        request.auth.uid == request.resource.data.createdBy;
+        
+        // Creator or manager can update recurring templates
+        allow update: if isSignedIn() && 
+                        (isManager(householdId) || 
+                         request.auth.uid == resource.data.createdBy);
+        
+        // Creator or manager can delete recurring templates
+        allow delete: if isManager(householdId) || 
+                        request.auth.uid == resource.data.createdBy;
+      }
+      
+      // Budgets subcollection
+      match /budgets/{budgetId} {
+        // All household members can read budgets
+        allow read: if isMember(householdId);
+        
+        // Managers can create budgets
+        allow create: if isManager(householdId) && 
+                        request.auth.uid == request.resource.data.createdBy;
+        
+        // Managers can update budgets
+        allow update: if isManager(householdId);
+        
+        // Managers can delete budgets
+        allow delete: if isManager(householdId);
+      }
+      
+      // Savings Goals subcollection
+      match /savingsGoals/{goalId} {
+        // All household members can read savings goals
+        allow read: if isMember(householdId);
+        
+        // Any household member can create savings goals
+        allow create: if isMember(householdId) && 
+                        request.auth.uid == request.resource.data.createdBy;
+        
+        // Creator or manager can update savings goals
+        allow update: if isSignedIn() && 
+                        (isManager(householdId) || 
+                         request.auth.uid == resource.data.createdBy);
+        
+        // Creator or manager can delete savings goals
+        allow delete: if isManager(householdId) || 
+                        request.auth.uid == resource.data.createdBy;
+      }
+      
+      // Inventory subcollection
+      match /inventory/{itemId} {
+        // All household members can read inventory
+        allow read: if isMember(householdId);
+        
+        // Any household member can create inventory items
+        allow create: if isMember(householdId);
+        
+        // Any household member can update inventory items
+        allow update: if isMember(householdId);
+        
+        // Any household member can delete inventory items
+        allow delete: if isMember(householdId);
+      }
+      
+      // Debt Payments subcollection
+      match /debtPayments/{paymentId} {
+        // All household members can read debt payments
+        allow read: if isMember(householdId);
+        
+        // Debtor or creditor can create payment records
+        allow create: if isMember(householdId) && 
+                        request.auth.uid == request.resource.data.paidBy;
+        
+        // Only managers can update payments
+        allow update: if isManager(householdId);
+        
+        // Only managers can delete payments
+        allow delete: if isManager(householdId);
+      }
+      
+      // Comments subcollection (under expenses)
+      match /expenses/{expenseId}/comments/{commentId} {
+        // All household members can read comments
+        allow read: if isMember(householdId);
+        
+        // Any household member can create comments
+        allow create: if isMember(householdId) && 
+                        request.auth.uid == request.resource.data.userId;
+        
+        // Only comment creator can delete their own comments
+        allow delete: if request.auth.uid == resource.data.userId;
+        
+        // No one can update comments (create new instead)
+        allow update: if false;
+      }
     }
     
     // Personal Expenses - private to each user

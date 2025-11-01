@@ -8,30 +8,45 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
 import DatePicker from '../ui/DatePicker';
-import { ShoppingBag, Plus, Trash2, X } from 'lucide-react';
+import CategorySelector from '../ui/CategorySelector';
+import { ShoppingBag, Plus, Trash2, X, Upload, Zap } from 'lucide-react';
 import { getDisplayName } from '../../utils/displayName';
+import { QUICK_TEMPLATES } from '../../utils/quickTemplates';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const ExpenseForm = ({ onSuccess, onCancel }) => {
+const ExpenseForm = ({ onSuccess, onCancel, template = null }) => {
   const { currentUser } = useAuth();
   const { household, members } = useHousehold();
   const [loading, setLoading] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [receiptFiles, setReceiptFiles] = useState([]);
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
-    sharedAmong: [],
-    notes: ''
+    sharedAmong: template?.sharedAmong || [],
+    notes: template?.notes || '',
+    category: template?.category || 'other',
+    splitType: 'equal'
   });
 
-  const [items, setItems] = useState([
+  const initialItems = template?.items ? template.items.map((item, idx) => ({
+    id: Date.now() + idx,
+    name: item.name,
+    amount: item.amount,
+    buyer: item.buyer || currentUser?.uid || '',
+    category: item.category || template.category || 'other'
+  })) : [
     {
       id: Date.now(),
       name: '',
       amount: '',
-      buyer: currentUser?.uid || ''
+      buyer: currentUser?.uid || '',
+      category: 'other'
     }
-  ]);
+  ];
+
+  const [items, setItems] = useState(initialItems);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -54,9 +69,43 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
         id: Date.now(),
         name: '',
         amount: '',
-        buyer: currentUser?.uid || ''
+        buyer: currentUser?.uid || '',
+        category: formData.category
       }
     ]);
+  };
+
+  const loadTemplate = (templateId) => {
+    const template = QUICK_TEMPLATES.find(t => t.id === templateId);
+    if (template) {
+      setItems(template.items.map((item, idx) => ({
+        id: Date.now() + idx,
+        name: item.name,
+        amount: item.amount,
+        buyer: currentUser?.uid || '',
+        category: template.category
+      })));
+      setFormData(prev => ({ ...prev, category: template.category }));
+      setShowTemplates(false);
+      toast.success(`Template "${template.name}" loaded!`);
+    }
+  };
+
+  const handleReceiptUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length + receiptFiles.length > 5) {
+      toast.error('Maximum 5 receipts allowed');
+      return;
+    }
+
+    setReceiptFiles(prev => [...prev, ...imageFiles]);
+    toast.success(`${imageFiles.length} receipt(s) added`);
+  };
+
+  const removeReceipt = (index) => {
+    setReceiptFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const removeItem = (id) => {
@@ -90,17 +139,25 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
       // Calculate total amount
       const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.amount), 0);
       
+      // Upload receipts if any (simplified - in production use Firebase Storage)
+      const receiptUrls = receiptFiles.length > 0 ? 
+        receiptFiles.map(file => URL.createObjectURL(file)) : [];
+
       // Create a single expense with multiple items
       await addDoc(expensesRef, {
         items: items.map(item => ({
           name: item.name.trim(),
           amount: parseFloat(item.amount),
-          buyer: item.buyer
+          buyer: item.buyer,
+          category: item.category || formData.category
         })),
         totalAmount: totalAmount,
+        category: formData.category,
         date: formData.date,
         sharedAmong: formData.sharedAmong,
+        splitType: formData.splitType,
         notes: formData.notes.trim(),
+        receipts: receiptUrls,
         status: 'pending',
         createdAt: new Date().toISOString(),
         createdBy: currentUser.uid,
@@ -114,16 +171,20 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
       setFormData({
         date: new Date().toISOString().split('T')[0],
         sharedAmong: [],
-        notes: ''
+        notes: '',
+        category: 'other',
+        splitType: 'equal'
       });
       setItems([
         {
           id: Date.now(),
           name: '',
           amount: '',
-          buyer: currentUser?.uid || ''
+          buyer: currentUser?.uid || '',
+          category: 'other'
         }
       ]);
+      setReceiptFiles([]);
 
       if (onSuccess) onSuccess();
     } catch (error) {
@@ -138,12 +199,57 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Quick Templates */}
+      <div className="space-y-2">
+        <Button
+          type="button"
+          variant="outline"
+          icon={<Zap size={16} />}
+          onClick={() => setShowTemplates(!showTemplates)}
+          className="w-full"
+        >
+          {showTemplates ? 'Hide' : 'Quick Add Templates'}
+        </Button>
+        
+        {showTemplates && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-accent/50 rounded-lg"
+          >
+            {QUICK_TEMPLATES.map(template => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => loadTemplate(template.id)}
+                className="p-2 border border-border rounded-lg hover:bg-background hover:shadow-md transition-all text-sm flex flex-col items-center gap-1"
+              >
+                <span className="text-2xl">{template.emoji}</span>
+                <span className="text-xs font-medium text-center">{template.name}</span>
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </div>
+
       {/* Date Selection */}
       <DatePicker
         label="Purchase Date"
         name="date"
         value={formData.date}
         onChange={handleChange}
+        required
+      />
+
+      {/* Category Selection */}
+      <CategorySelector
+        value={formData.category}
+        onChange={(categoryId) => {
+          setFormData(prev => ({ ...prev, category: categoryId }));
+          // Update all items with the new category
+          setItems(prev => prev.map(item => ({ ...item, category: categoryId })));
+        }}
         required
       />
 
@@ -216,7 +322,7 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
                     label="Buyer"
                     value={item.buyer}
                     onChange={(e) => handleItemChange(item.id, 'buyer', e.target.value)}
-                    options={members.map(member => ({
+                    options={members.filter(m => m.type !== 'manual' && m.role !== 'manual').map(member => ({
                       value: member.uid,
                       label: getDisplayName(member)
                     }))}
@@ -237,12 +343,12 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium leading-none">
-          Shared Among
-        </label>
-        <div className="border border-input rounded-md p-3 space-y-2 max-h-[200px] overflow-y-auto">
-          {members.map(member => (
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none">
+              Shared Among
+            </label>
+            <div className="border border-input rounded-md p-3 space-y-2 max-h-[200px] overflow-y-auto">
+              {members.filter(member => member.type !== 'manual' && member.role !== 'manual').map(member => (
             <label 
               key={member.uid} 
               className="flex items-center gap-2 cursor-pointer hover:bg-accent p-2 rounded transition-colors"
@@ -283,6 +389,49 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
           rows={3}
           className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
+      </div>
+
+      {/* Receipt Upload */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium leading-none">
+          Receipt Images (Optional)
+        </label>
+        <div className="space-y-2">
+          <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded-lg hover:bg-accent cursor-pointer transition-colors">
+            <Upload size={20} />
+            <span className="text-sm">Upload Receipts (Max 5)</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleReceiptUpload}
+              className="hidden"
+            />
+          </label>
+          
+          {receiptFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {receiptFiles.map((file, index) => (
+                <div key={index} className="relative group">
+                  <div className="w-20 h-20 rounded-lg overflow-hidden border border-border">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={`Receipt ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeReceipt(index)}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-3 pt-4">

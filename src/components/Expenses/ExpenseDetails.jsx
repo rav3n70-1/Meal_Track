@@ -13,9 +13,11 @@ import {
   Clock
 } from 'lucide-react';
 import { getDisplayName } from '../../utils/displayName';
+import { getCategoryLabel } from '../../utils/categories';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import ExpenseComments from '../Comments/ExpenseComments';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
 import toast from 'react-hot-toast';
@@ -226,6 +228,15 @@ const ExpenseDetails = ({ expense, isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Category */}
+        {expense.category && (
+          <div className="p-4 bg-accent rounded-lg">
+            <p className="text-sm text-muted-foreground">
+              Category: <span className="font-semibold">{getCategoryLabel(expense.category)}</span>
+            </p>
+          </div>
+        )}
+
         {/* Notes */}
         {expense.notes && (
           <div className="p-4 bg-accent rounded-lg">
@@ -238,6 +249,29 @@ const ExpenseDetails = ({ expense, isOpen, onClose }) => {
             </p>
           </div>
         )}
+
+        {/* Receipt Images */}
+        {expense.receipts && expense.receipts.length > 0 && (
+          <div className="p-4 bg-accent rounded-lg">
+            <h4 className="font-semibold mb-3">Receipt Images</h4>
+            <div className="flex flex-wrap gap-2">
+              {expense.receipts.map((url, index) => (
+                <img
+                  key={index}
+                  src={url}
+                  alt={`Receipt ${index + 1}`}
+                  className="w-24 h-24 object-cover rounded-lg border border-border cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => window.open(url, '_blank')}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Comments Section */}
+        <div className="p-4 bg-accent rounded-lg">
+          <ExpenseComments expenseId={expense.id} />
+        </div>
 
         {/* Metadata */}
         <div className="pt-4 border-t border-border text-xs text-muted-foreground space-y-1">

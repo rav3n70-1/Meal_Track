@@ -7,6 +7,7 @@ import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import MemberManagementModal from '../components/Members/MemberManagementModal';
+import ManualMemberForm from '../components/Members/ManualMemberForm';
 import Modal from '../components/ui/Modal';
 import { useHousehold } from '../context/HouseholdContext';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +21,7 @@ const Members = () => {
   const role = getUserRole();
   const [copied, setCopied] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddManualModal, setShowAddManualModal] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
 
@@ -80,11 +82,21 @@ const Members = () => {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Members</h1>
-          <p className="text-muted-foreground">
-            Manage household members and invite new ones
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Members</h1>
+            <p className="text-muted-foreground">
+              Manage household members and invite new ones
+            </p>
+          </div>
+          {role === 'manager' && (
+            <Button
+              icon={<UserPlus size={18} />}
+              onClick={() => setShowAddManualModal(true)}
+            >
+              Add Bill-Only Member
+            </Button>
+          )}
         </div>
 
         {/* Invite Code Card */}
@@ -169,7 +181,7 @@ const Members = () => {
                       </div>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                         <Mail size={14} />
-                        {member.email}
+                        {member.email || (member.phone ? `📞 ${member.phone}` : 'No email')}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
                         Joined {new Date(member.joinedAt).toLocaleDateString()}
@@ -179,11 +191,16 @@ const Members = () => {
 
                   {/* Role Badge and Actions */}
                   <div className="flex items-center gap-3">
-                    <Badge 
-                      variant={member.role === 'manager' ? 'success' : 'default'}
-                    >
-                      {member.role}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge 
+                        variant={member.role === 'manager' ? 'success' : member.role === 'manual' ? 'warning' : 'default'}
+                      >
+                        {member.role === 'manual' ? 'Bill-Only' : member.role}
+                      </Badge>
+                      {member.type === 'manual' && (
+                        <span className="text-xs text-muted-foreground">Manual Member</span>
+                      )}
+                    </div>
 
                     {/* Manager Controls */}
                     {role === 'manager' && (
@@ -270,6 +287,18 @@ const Members = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Add Manual Member Modal */}
+      <Modal
+        isOpen={showAddManualModal}
+        onClose={() => setShowAddManualModal(false)}
+        title="Add Bill-Only Member"
+      >
+        <ManualMemberForm
+          onSuccess={() => setShowAddManualModal(false)}
+          onCancel={() => setShowAddManualModal(false)}
+        />
       </Modal>
     </Layout>
   );

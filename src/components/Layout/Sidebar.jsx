@@ -10,7 +10,13 @@ import {
   FileText,
   UserCircle,
   DollarSign,
-  Wallet
+  Wallet,
+  Target,
+  Repeat,
+  PiggyBank,
+  Package,
+  Calendar,
+  BarChart3
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useHousehold } from '../../context/HouseholdContext';
@@ -43,15 +49,21 @@ const Sidebar = ({ isOpen, onClose }) => {
   }, []);
 
   const navigationItems = [
-    { path: '/dashboard', label: t('dashboard'), icon: Home },
-    { path: '/profile', label: 'My Profile', icon: UserCircle },
-    { path: '/personal-expenses', label: 'Personal Expenses', icon: Wallet },
-    { path: '/expenses', label: t('expenses'), icon: Receipt },
-    { path: '/debts', label: 'Debts', icon: DollarSign },
-    { path: '/members', label: t('members'), icon: Users },
-    { path: '/reports', label: t('reports'), icon: TrendingUp },
-    { path: '/activity', label: t('activity'), icon: FileText },
-    { path: '/settings', label: t('settings'), icon: Settings },
+    { path: '/dashboard', label: t('dashboard'), icon: Home, category: 'main' },
+    { path: '/profile', label: 'My Profile', icon: UserCircle, category: 'main' },
+    { path: '/personal-expenses', label: 'Personal Expenses', icon: Wallet, category: 'main' },
+    { path: '/expenses', label: t('expenses'), icon: Receipt, category: 'expenses' },
+    { path: '/recurring', label: 'Recurring', icon: Repeat, category: 'expenses' },
+    { path: '/debts', label: 'Debts', icon: DollarSign, category: 'expenses' },
+    { path: '/budget', label: 'Budget', icon: Target, category: 'planning' },
+    { path: '/savings', label: 'Savings Goals', icon: PiggyBank, category: 'planning' },
+    { path: '/inventory', label: 'Inventory', icon: Package, category: 'planning' },
+    { path: '/calendar', label: 'Calendar', icon: Calendar, category: 'insights' },
+    { path: '/analytics', label: 'Analytics', icon: BarChart3, category: 'insights' },
+    { path: '/reports', label: t('reports'), icon: TrendingUp, category: 'insights' },
+    { path: '/members', label: t('members'), icon: Users, category: 'household' },
+    { path: '/activity', label: t('activity'), icon: FileText, category: 'household' },
+    { path: '/settings', label: t('settings'), icon: Settings, category: 'household' },
   ];
 
   const handleNavigation = (path) => {
@@ -99,28 +111,49 @@ const Sidebar = ({ isOpen, onClose }) => {
             </motion.div>
           )}
 
-          {navigationItems.map((item, index) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+          {/* Group navigation items by category */}
+          {['main', 'expenses', 'planning', 'insights', 'household'].map((category) => {
+            const categoryItems = navigationItems.filter(item => item.category === category);
+            if (categoryItems.length === 0) return null;
+
+            const categoryLabels = {
+              main: 'Overview',
+              expenses: 'Expenses',
+              planning: 'Planning',
+              insights: 'Insights',
+              household: 'Household'
+            };
 
             return (
-              <motion.button
-                key={item.path}
-                onClick={() => handleNavigation(item.path)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'hover:bg-accent text-foreground'
-                }`}
-                whileHover={{ scale: 1.02, x: 5 }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <Icon size={20} />
-                <span className="font-medium">{item.label}</span>
-              </motion.button>
+              <div key={category} className="mb-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2">
+                  {categoryLabels[category]}
+                </p>
+                {categoryItems.map((item, index) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+
+                  return (
+                    <motion.button
+                      key={item.path}
+                      onClick={() => handleNavigation(item.path)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all text-sm ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'hover:bg-accent text-foreground'
+                      }`}
+                      whileHover={{ scale: 1.02, x: 5 }}
+                      whileTap={{ scale: 0.98 }}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                    >
+                      <Icon size={18} />
+                      <span className="font-medium">{item.label}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>

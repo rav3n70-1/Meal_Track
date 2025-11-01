@@ -17,6 +17,7 @@ import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import DebtPaymentForm from './DebtPaymentForm';
+import DebtSettlement from './DebtSettlement';
 import { getDisplayName } from '../../utils/displayName';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
