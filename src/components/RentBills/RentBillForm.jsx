@@ -185,7 +185,6 @@ const RentBillForm = ({ bill = null, onSuccess, onCancel }) => {
 
       onSuccess?.();
     } catch (error) {
-      console.error('Error saving bill:', error);
       toast.error(error.message || 'Failed to save bill');
     } finally {
       setLoading(false);

@@ -44,7 +44,6 @@ const Members = () => {
       setShowEditModal(false);
       setSelectedMember(null);
     } catch (error) {
-      console.error('Error updating member:', error);
       throw error;
     }
   };
@@ -62,7 +61,6 @@ const Members = () => {
       setSelectedMember(null);
     } catch (error) {
       toast.error(error.message || 'Failed to remove member');
-      console.error('Error removing member:', error);
     }
   };
 

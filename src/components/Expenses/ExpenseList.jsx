@@ -35,17 +35,6 @@ const ExpenseList = ({ expenses, onExpenseClick }) => {
   const [selectedExpenses, setSelectedExpenses] = useState(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('ExpenseList Debug:', {
-      role,
-      isManager: role === 'manager',
-      membersCount: members.length,
-      currentUserId: currentUser?.uid,
-      householdId: household?.id
-    });
-  }, [role, members.length, currentUser, household]);
-
   // Create member lookup
   const memberLookup = useMemo(() => {
     const lookup = {};
@@ -144,7 +133,6 @@ const ExpenseList = ({ expenses, onExpenseClick }) => {
       toast.success(`${selectedExpenses.size} expense${selectedExpenses.size > 1 ? 's' : ''} ${action}!`);
       setSelectedExpenses(new Set());
     } catch (error) {
-      console.error('Error performing bulk action:', error);
       toast.error('Failed to perform bulk action');
     } finally {
       setBulkActionLoading(false);

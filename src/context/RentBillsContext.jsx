@@ -57,7 +57,6 @@ export const RentBillsProvider = ({ children }) => {
         updatedAt: serverTimestamp()
       });
     } catch (error) {
-      console.error('Error adding rent-only member:', error);
       throw error;
     }
   };
@@ -77,7 +76,6 @@ export const RentBillsProvider = ({ children }) => {
         updatedAt: serverTimestamp()
       });
     } catch (error) {
-      console.error('Error updating rent-only member:', error);
       throw error;
     }
   };
@@ -92,7 +90,6 @@ export const RentBillsProvider = ({ children }) => {
       const memberRef = doc(db, 'households', household.id, 'rentBillMembers', memberId);
       await deleteDoc(memberRef);
     } catch (error) {
-      console.error('Error removing rent-only member:', error);
       throw error;
     }
   };
@@ -113,7 +110,6 @@ export const RentBillsProvider = ({ children }) => {
         updatedAt: serverTimestamp()
       });
     } catch (error) {
-      console.error('Error creating rent/bill:', error);
       throw error;
     }
   };
@@ -131,7 +127,6 @@ export const RentBillsProvider = ({ children }) => {
         updatedAt: serverTimestamp()
       });
     } catch (error) {
-      console.error('Error updating rent/bill:', error);
       throw error;
     }
   };
@@ -146,7 +141,6 @@ export const RentBillsProvider = ({ children }) => {
       const billRef = doc(db, 'households', household.id, 'rentBills', billId);
       await deleteDoc(billRef);
     } catch (error) {
-      console.error('Error deleting rent/bill:', error);
       throw error;
     }
   };
@@ -201,7 +195,6 @@ export const RentBillsProvider = ({ children }) => {
       const billRef = doc(db, 'households', household.id, 'rentBills', billId);
       await updateDoc(billRef, updateData);
     } catch (error) {
-      console.error('Error recording payment:', error);
       throw error;
     }
   };
@@ -262,7 +255,6 @@ export const RentBillsProvider = ({ children }) => {
         setRentBillMembers(membersData);
       },
       (error) => {
-        console.error('Error loading rent-only members:', error);
         setRentBillMembers([]);
       }
     );
@@ -285,7 +277,6 @@ export const RentBillsProvider = ({ children }) => {
         setRentBills(billsData);
       },
       (error) => {
-        console.error('Error loading rent/bills:', error);
         setRentBills([]);
       }
     );

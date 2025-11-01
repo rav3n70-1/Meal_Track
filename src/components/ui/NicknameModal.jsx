@@ -51,7 +51,6 @@ const NicknameModal = ({ isOpen, onClose, currentUser, userProfile, household, o
       if (onSuccess) onSuccess();
       onClose();
     } catch (error) {
-      console.error('Error setting nickname:', error);
       toast.error('Failed to set nickname');
     } finally {
       setLoading(false);

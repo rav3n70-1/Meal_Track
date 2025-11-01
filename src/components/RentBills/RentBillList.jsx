@@ -64,7 +64,6 @@ const RentBillList = ({ filterMemberId = null }) => {
       await deleteRentBill(bill.id);
       toast.success('Bill deleted successfully');
     } catch (error) {
-      console.error('Error deleting bill:', error);
       toast.error(error.message || 'Failed to delete bill');
     }
   };
@@ -139,7 +138,6 @@ const RentBillList = ({ filterMemberId = null }) => {
       );
       toast.success('Receipt generated successfully');
     } catch (error) {
-      console.error('Error generating receipt:', error);
       toast.error('Failed to generate receipt');
     }
   };
@@ -170,7 +168,6 @@ const RentBillList = ({ filterMemberId = null }) => {
       setPaymentNotes('');
       setSelectedBill(null);
     } catch (error) {
-      console.error('Error recording payment:', error);
       toast.error(error.message || 'Failed to record payment');
     } finally {
       setPaymentLoading(false);

@@ -126,7 +126,6 @@ const DebtPaymentForm = ({ debt, onSuccess, onCancel }) => {
 
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Error recording payment:', error);
       toast.error('Failed to record payment');
     } finally {
       setLoading(false);

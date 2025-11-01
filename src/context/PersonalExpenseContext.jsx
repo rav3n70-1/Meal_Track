@@ -69,7 +69,6 @@ export const PersonalExpenseProvider = ({ children }) => {
         createdAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Error adding personal expense:', error);
       throw error;
     }
   };
@@ -85,7 +84,6 @@ export const PersonalExpenseProvider = ({ children }) => {
         updatedAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Error updating personal expense:', error);
       throw error;
     }
   };
@@ -98,7 +96,6 @@ export const PersonalExpenseProvider = ({ children }) => {
       const expenseRef = doc(db, 'personalExpenses', expenseId);
       await deleteDoc(expenseRef);
     } catch (error) {
-      console.error('Error deleting personal expense:', error);
       throw error;
     }
   };

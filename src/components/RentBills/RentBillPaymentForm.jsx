@@ -39,7 +39,6 @@ const RentBillPaymentForm = ({ bill, onSuccess, onCancel }) => {
       toast.success('Payment recorded successfully');
       onSuccess?.();
     } catch (error) {
-      console.error('Error recording payment:', error);
       toast.error(error.message || 'Failed to record payment');
     } finally {
       setLoading(false);

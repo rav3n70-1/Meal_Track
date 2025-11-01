@@ -19,7 +19,7 @@ const Navbar = ({ onMenuToggle }) => {
     try {
       await signOut();
     } catch (error) {
-      console.error('Error signing out:', error);
+      // Silently handle sign out errors
     }
   };
 

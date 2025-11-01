@@ -47,7 +47,6 @@ const Reports = () => {
       }
       toast.success(`Expenses exported as ${format.toUpperCase()}`);
     } catch (error) {
-      console.error('Export error:', error);
       toast.error('Failed to export expenses');
     }
   };
@@ -57,7 +56,6 @@ const Reports = () => {
       exportBalancesToExcel(memberBalances, settlementDebts);
       toast.success('Balances exported successfully');
     } catch (error) {
-      console.error('Export error:', error);
       toast.error('Failed to export balances');
     }
   };

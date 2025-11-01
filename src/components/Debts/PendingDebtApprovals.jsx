@@ -49,7 +49,6 @@ const PendingDebtApprovals = ({ debts }) => {
       setShowDetailsModal(false);
       setSelectedDebt(null);
     } catch (error) {
-      console.error('Error approving debt:', error);
       toast.error('Failed to approve debt record');
     } finally {
       setLoading(false);
@@ -75,7 +74,6 @@ const PendingDebtApprovals = ({ debts }) => {
       setShowDetailsModal(false);
       setSelectedDebt(null);
     } catch (error) {
-      console.error('Error rejecting debt:', error);
       toast.error('Failed to reject debt record');
     } finally {
       setLoading(false);

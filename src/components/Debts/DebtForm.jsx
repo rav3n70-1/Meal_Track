@@ -94,7 +94,6 @@ const DebtForm = ({ onSuccess, onCancel }) => {
 
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Error adding debt:', error);
       toast.error('Failed to add debt record');
     } finally {
       setLoading(false);

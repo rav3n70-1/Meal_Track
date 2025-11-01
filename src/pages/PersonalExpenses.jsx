@@ -88,7 +88,6 @@ const PersonalExpenses = () => {
       setShowAddModal(false);
     } catch (error) {
       toast.error('Failed to add expense');
-      console.error(error);
     }
   };
 
@@ -119,7 +118,6 @@ const PersonalExpenses = () => {
       setSelectedExpense(null);
     } catch (error) {
       toast.error('Failed to update expense');
-      console.error(error);
     }
   };
 
@@ -136,7 +134,6 @@ const PersonalExpenses = () => {
       setSelectedExpense(null);
     } catch (error) {
       toast.error('Failed to delete expense');
-      console.error(error);
     }
   };
 

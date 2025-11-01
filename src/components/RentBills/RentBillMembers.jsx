@@ -54,7 +54,6 @@ const RentBillMembers = () => {
       setShowAddModal(false);
       setFormData({ email: '', name: '', nickname: '' });
     } catch (error) {
-      console.error('Error adding member:', error);
       toast.error(error.message || 'Failed to add member');
     } finally {
       setLoading(false);
@@ -77,7 +76,6 @@ const RentBillMembers = () => {
       setSelectedMember(null);
       setFormData({ email: '', name: '', nickname: '' });
     } catch (error) {
-      console.error('Error updating member:', error);
       toast.error(error.message || 'Failed to update member');
     } finally {
       setLoading(false);
@@ -100,7 +98,6 @@ const RentBillMembers = () => {
       await removeRentBillMember(member.uid);
       toast.success('Member removed successfully');
     } catch (error) {
-      console.error('Error removing member:', error);
       toast.error(error.message || 'Failed to remove member');
     }
   };

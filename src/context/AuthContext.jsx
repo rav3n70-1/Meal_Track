@@ -55,18 +55,15 @@ export const AuthProvider = ({ children }) => {
           createdAt: serverTimestamp(),
           householdId: null,
         });
-        console.log('[Auth] New user profile created');
       } else {
         // Existing user - update last login
         await setDoc(userRef, userData, { merge: true });
-        console.log('[Auth] User profile updated');
       }
 
       // Fetch and return the profile
       const updatedSnap = await getDoc(userRef);
       return updatedSnap.data();
     } catch (error) {
-      console.error('[Auth] Error creating/updating user profile:', error);
       throw error;
     }
   };
@@ -96,7 +93,6 @@ export const AuthProvider = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('[Auth] Error loading user profile:', error);
       return null;
     }
   };
@@ -106,8 +102,6 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       const isMobile = isMobileDevice();
-
-      console.log('[Auth] Starting Google sign-in', { isMobile });
 
       if (isMobile) {
         // Use redirect flow for mobile (better compatibility)
@@ -119,14 +113,12 @@ export const AuthProvider = ({ children }) => {
         const result = await signInWithPopup(auth, googleProvider);
         
         if (result.user) {
-          console.log('[Auth] Popup sign-in successful');
           const profile = await createOrUpdateUserProfile(result.user);
           setUserProfile(profile);
           setCurrentUser(result.user);
         }
       }
     } catch (error) {
-      console.error('[Auth] Sign-in error:', error);
       setLoading(false);
       
       // Handle specific errors
@@ -143,13 +135,10 @@ export const AuthProvider = ({ children }) => {
   // Sign out
   const signOut = async () => {
     try {
-      console.log('[Auth] Signing out...');
       await firebaseSignOut(auth);
       setCurrentUser(null);
       setUserProfile(null);
-      console.log('[Auth] Sign-out successful');
     } catch (error) {
-      console.error('[Auth] Sign-out error:', error);
       throw error;
     }
   };
@@ -160,11 +149,9 @@ export const AuthProvider = ({ children }) => {
 
     const handleRedirect = async () => {
       try {
-        console.log('[Auth] Checking for redirect result...');
         const result = await getRedirectResult(auth);
         
         if (result && result.user && mounted) {
-          console.log('[Auth] Redirect sign-in successful');
           const profile = await createOrUpdateUserProfile(result.user);
           if (mounted) {
             setUserProfile(profile);
@@ -172,7 +159,7 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } catch (error) {
-        console.error('[Auth] Redirect error:', error);
+        // Handle redirect error silently
       } finally {
         if (mounted) {
           setInitializing(false);
@@ -189,14 +176,7 @@ export const AuthProvider = ({ children }) => {
 
   // Listen to authentication state changes
   useEffect(() => {
-    console.log('[Auth] Setting up auth state listener');
-    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('[Auth] Auth state changed:', { 
-        hasUser: !!user, 
-        email: user?.email 
-      });
-
       if (user) {
         // User is signed in
         setCurrentUser(user);
@@ -212,7 +192,6 @@ export const AuthProvider = ({ children }) => {
     });
 
     return () => {
-      console.log('[Auth] Cleaning up auth state listener');
       unsubscribe();
     };
   }, []);

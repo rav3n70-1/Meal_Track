@@ -160,14 +160,7 @@ const ExpenseForm = ({ expense = null, onSuccess, onCancel }) => {
 
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Error saving expense:', error);
-      console.error('Error details:', {
-        code: error.code,
-        message: error.message,
-        householdId: household?.id,
-        expenseId: expense?.id
-      });
-      toast.error(error.message || `Failed to ${expense ? 'update' : 'add'} expense. Check console for details.`);
+      toast.error(error.message || `Failed to ${expense ? 'update' : 'add'} expense`);
     } finally {
       setLoading(false);
     }

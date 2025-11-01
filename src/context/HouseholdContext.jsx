@@ -95,7 +95,6 @@ export const HouseholdProvider = ({ children }) => {
 
       return householdRef.id;
     } catch (error) {
-      console.error('Error creating household:', error);
       throw error;
     }
   };
@@ -162,7 +161,6 @@ export const HouseholdProvider = ({ children }) => {
 
       return householdId;
     } catch (error) {
-      console.error('Error joining household:', error);
       throw error;
     }
   };
@@ -190,7 +188,6 @@ export const HouseholdProvider = ({ children }) => {
         updatedAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Error updating member:', error);
       throw error;
     }
   };
@@ -234,10 +231,8 @@ export const HouseholdProvider = ({ children }) => {
       } catch (userUpdateError) {
         // Silently fail - user will see they're removed when they reload
         // They can rejoin another household if needed
-        console.log('Could not update user document (permissions), but member was removed successfully');
       }
     } catch (error) {
-      console.error('Error removing member:', error);
       throw error;
     }
   };
@@ -279,21 +274,16 @@ export const HouseholdProvider = ({ children }) => {
         if (!isStillMember) {
           // User has been removed from household - clear their householdId
           const userRef = doc(db, 'users', currentUser.uid);
-          updateDoc(userRef, { householdId: null }).catch(err => {
-            console.log('Could not clear householdId, will be handled on next login');
-          });
+          updateDoc(userRef, { householdId: null }).catch(() => {});
           // Reload user profile to reflect the change
           loadUserProfile(currentUser.uid);
         }
       },
       (error) => {
-        console.error('Error loading members:', error);
         // If we get a permission error, user might have been removed
         if (error.code === 'permission-denied') {
           const userRef = doc(db, 'users', currentUser.uid);
-          updateDoc(userRef, { householdId: null }).catch(err => {
-            console.log('Could not clear householdId');
-          });
+          updateDoc(userRef, { householdId: null }).catch(() => {});
           loadUserProfile(currentUser.uid);
         }
       }
@@ -341,7 +331,7 @@ export const HouseholdProvider = ({ children }) => {
       try {
         await updateAutomaticDebts(household.id, expenses, members, debts);
       } catch (error) {
-        console.error('Error auto-generating debts:', error);
+        // Silently handle debt generation errors
       }
     };
 

@@ -32,11 +32,8 @@ googleProvider.setCustomParameters({
 
 // Set persistence to local (survives browser restarts)
 setPersistence(auth, browserLocalPersistence)
-  .then(() => {
-    console.log('[Firebase] Auth persistence set to LOCAL');
-  })
-  .catch((error) => {
-    console.error('[Firebase] Error setting persistence:', error);
+  .catch(() => {
+    // Silently handle persistence errors
   });
 
 export default app;

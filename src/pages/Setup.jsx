@@ -43,7 +43,6 @@ const Setup = () => {
       // Show nickname modal
       setShowNicknameModal(true);
     } catch (error) {
-      console.error('Error creating household:', error);
       toast.error('Failed to create household');
       setSubmitting(false);
     }
@@ -63,7 +62,6 @@ const Setup = () => {
       // Show nickname modal
       setShowNicknameModal(true);
     } catch (error) {
-      console.error('Error joining household:', error);
       toast.error(error.message || 'Failed to join household');
       setSubmitting(false);
     }

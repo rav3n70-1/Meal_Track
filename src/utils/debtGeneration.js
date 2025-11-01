@@ -137,7 +137,6 @@ export const syncAutomaticDebts = async (householdId, automaticDebts, existingDe
     // Commit all changes
     await batch.commit();
   } catch (error) {
-    console.error('Error syncing automatic debts:', error);
     throw error;
   }
 };
@@ -158,7 +157,6 @@ export const updateAutomaticDebts = async (householdId, expenses, members, exist
     // Sync with Firestore
     await syncAutomaticDebts(householdId, automaticDebts, existingDebts);
   } catch (error) {
-    console.error('Error updating automatic debts:', error);
     throw error;
   }
 };

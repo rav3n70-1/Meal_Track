@@ -18,8 +18,6 @@ const Login = () => {
       await signInWithGoogle();
       toast.success('Welcome! Setting up your account...');
     } catch (error) {
-      console.error('[Login] Error:', error);
-      
       // User-friendly error messages
       if (error.message === 'Sign-in cancelled') {
         toast.error('Sign-in was cancelled');

@@ -68,7 +68,6 @@ const MemberManagementModal = ({ isOpen, onClose, member, onSave }) => {
       });
       onClose();
     } catch (error) {
-      console.error('Error saving member:', error);
       toast.error(error.message || 'Failed to save member');
     } finally {
       setSaving(false);

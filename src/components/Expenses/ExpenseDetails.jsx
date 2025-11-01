@@ -28,19 +28,6 @@ const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
   const [loading, setLoading] = useState(false);
   const role = getUserRole();
 
-  // Debug logging for managers
-  useEffect(() => {
-    if (isOpen && expense) {
-      console.log('ExpenseDetails Debug:', {
-        role,
-        isManager: role === 'manager',
-        hasOnEdit: !!onEdit,
-        expenseId: expense.id,
-        householdId: household?.id
-      });
-    }
-  }, [isOpen, expense, role, onEdit, household]);
-
   if (!expense) return null;
 
   // Create member lookup
@@ -75,7 +62,6 @@ const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
       toast.success('Expense approved!');
       onClose();
     } catch (error) {
-      console.error('Error approving expense:', error);
       toast.error('Failed to approve expense');
     } finally {
       setLoading(false);
@@ -100,7 +86,6 @@ const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
       toast.success('Expense rejected');
       onClose();
     } catch (error) {
-      console.error('Error rejecting expense:', error);
       toast.error('Failed to reject expense');
     } finally {
       setLoading(false);
@@ -130,15 +115,7 @@ const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
       toast.success('Expense deleted successfully');
       onClose();
     } catch (error) {
-      console.error('Error deleting expense:', error);
-      console.error('Error details:', {
-        code: error.code,
-        message: error.message,
-        householdId: household?.id,
-        expenseId: expense.id,
-        role: role
-      });
-      toast.error(error.message || 'Failed to delete expense. Check console for details.');
+      toast.error(error.message || 'Failed to delete expense');
     } finally {
       setLoading(false);
     }
