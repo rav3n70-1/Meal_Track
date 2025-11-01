@@ -1,7 +1,7 @@
 // List component for displaying Rent and Bills
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Edit2, Trash2, DollarSign, Calendar, CheckCircle, AlertCircle, Clock, Wallet } from 'lucide-react';
+import { Edit2, Trash2, DollarSign, Calendar, CheckCircle, AlertCircle, Clock, Wallet, Printer } from 'lucide-react';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
@@ -12,11 +12,12 @@ import { useRentBills } from '../../context/RentBillsContext';
 import { useHousehold } from '../../context/HouseholdContext';
 import { useAuth } from '../../context/AuthContext';
 import { getDisplayName } from '../../utils/displayName';
+import { generateRentBillReceipt } from '../../utils/exportData';
 import toast from 'react-hot-toast';
 
 const RentBillList = ({ filterMemberId = null }) => {
   const { currentUser } = useAuth();
-  const { getUserRole, members } = useHousehold();
+  const { getUserRole, members, household } = useHousehold();
   const { rentBills, deleteRentBill, rentBillMembers, recordPayment } = useRentBills();
   const [selectedBill, setSelectedBill] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -37,10 +38,19 @@ const RentBillList = ({ filterMemberId = null }) => {
       filtered = filtered.filter(bill => bill.memberId === filterMemberId);
     }
 
-    // Note: Removed status and type filters as new bill structure doesn't have these fields
+    // For non-managers, only show bills where they are a member
+    if (!isManager && currentUser) {
+      filtered = filtered.filter(bill => {
+        // Check if current user is in member breakdown
+        if (bill.memberBreakdown) {
+          return bill.memberBreakdown.some(m => m.memberId === currentUser.uid);
+        }
+        return false;
+      });
+    }
 
     return filtered;
-  }, [rentBills, filterMemberId]);
+  }, [rentBills, filterMemberId, isManager, currentUser]);
 
   const handleEdit = (bill) => {
     setSelectedBill(bill);
@@ -100,6 +110,38 @@ const RentBillList = ({ filterMemberId = null }) => {
         return sum + (parseFloat(amt) || 0);
       }, 0);
     }, 0);
+  };
+
+  const handlePrintReceipt = (member) => {
+    if (!selectedBill) return;
+    
+    try {
+      const memberAmounts = selectedBill.memberCategoryAmounts[member.uid] || {};
+      
+      // Combine existing payments with new payment amounts
+      const existingPayments = selectedBill.memberCategoryPayments?.[member.uid] || {};
+      const newPayments = paymentAmounts[member.uid] || {};
+      const combinedPayments = { ...existingPayments };
+      
+      Object.entries(newPayments).forEach(([category, amount]) => {
+        const numericAmount = parseFloat(amount) || 0;
+        if (numericAmount > 0) {
+          combinedPayments[category] = (combinedPayments[category] || 0) + numericAmount;
+        }
+      });
+      
+      generateRentBillReceipt(
+        { ...selectedBill, householdName: household?.name },
+        member,
+        memberAmounts,
+        combinedPayments,
+        `receipt-${selectedBill.description.replace(/\s+/g, '-')}-${member.name.replace(/\s+/g, '-')}.pdf`
+      );
+      toast.success('Receipt generated successfully');
+    } catch (error) {
+      console.error('Error generating receipt:', error);
+      toast.error('Failed to generate receipt');
+    }
   };
 
   const handleSubmitPayment = async (e) => {
@@ -200,29 +242,80 @@ const RentBillList = ({ filterMemberId = null }) => {
                         {bill.status && getStatusBadge(bill.status)}
                       </div>
 
-                      {/* Member Breakdown */}
+                      {/* Member Breakdown - Show all to managers, only current member to others */}
                       {bill.memberBreakdown && bill.memberBreakdown.length > 0 && (
                         <div className="space-y-1">
-                          {bill.memberBreakdown.map((member, idx) => (
-                            <div key={idx} className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">{member.memberName}:</span>
-                              <span className="font-semibold">৳{member.amount.toFixed(2)}</span>
-                            </div>
-                          ))}
+                          {bill.memberBreakdown
+                            .filter(member => isManager || member.memberId === currentUser?.uid)
+                            .map((member, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">{member.memberName}:</span>
+                                <span className="font-semibold">৳{member.amount.toFixed(2)}</span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+
+                      {/* Category Breakdown for non-managers */}
+                      {!isManager && currentUser && bill.categories && bill.memberCategoryAmounts?.[currentUser.uid] && (
+                        <div className="space-y-1 pt-2 border-t border-border">
+                          <p className="text-xs font-medium text-muted-foreground mb-2">Breakdown:</p>
+                          {bill.categories.map((category, idx) => {
+                            const amount = bill.memberCategoryAmounts[currentUser.uid][category] || 0;
+                            const paid = bill.memberCategoryPayments?.[currentUser.uid]?.[category] || 0;
+                            const paidAmount = parseFloat(paid) || 0;
+                            const dueAmount = parseFloat(amount) || 0;
+                            
+                            if (dueAmount <= 0) return null;
+                            
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">{category}:</span>
+                                <div className="flex items-center gap-2">
+                                  {paidAmount > 0 && paidAmount < dueAmount && (
+                                    <span className="text-xs text-orange-600">(Paid: ৳{paidAmount.toFixed(2)})</span>
+                                  )}
+                                  {paidAmount >= dueAmount && (
+                                    <span className="text-xs text-green-600">(Paid)</span>
+                                  )}
+                                  <span className="font-semibold">৳{dueAmount.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 
                       <div className="flex flex-wrap gap-4 text-sm">
-                        <div className="flex items-center gap-1">
-                          <DollarSign size={16} className="text-muted-foreground" />
-                          <span className="font-semibold">Total: ৳{(bill.totalAmount || 0).toFixed(2)}</span>
-                        </div>
-                        {bill.paidAmount > 0 && (
-                          <div className="flex items-center gap-1 text-green-600">
-                            <CheckCircle size={16} />
-                            <span>Paid: ৳{bill.paidAmount.toFixed(2)}</span>
-                          </div>
-                        )}
+                        {(() => {
+                          // Calculate member's total amount and paid amount
+                          let memberTotal = 0;
+                          let memberPaid = 0;
+                          
+                          if (!isManager && currentUser && bill.memberCategoryAmounts?.[currentUser.uid]) {
+                            Object.entries(bill.memberCategoryAmounts[currentUser.uid]).forEach(([category, amount]) => {
+                              memberTotal += parseFloat(amount) || 0;
+                              memberPaid += parseFloat(bill.memberCategoryPayments?.[currentUser.uid]?.[category]) || 0;
+                            });
+                          }
+                          
+                          return (
+                            <>
+                              <div className="flex items-center gap-1">
+                                <DollarSign size={16} className="text-muted-foreground" />
+                                <span className="font-semibold">
+                                  Total: ৳{isManager ? (bill.totalAmount || 0).toFixed(2) : memberTotal.toFixed(2)}
+                                </span>
+                              </div>
+                              {(isManager ? bill.paidAmount : memberPaid) > 0 && (
+                                <div className="flex items-center gap-1 text-green-600">
+                                  <CheckCircle size={16} />
+                                  <span>Paid: ৳{isManager ? bill.paidAmount.toFixed(2) : memberPaid.toFixed(2)}</span>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                         <div className="flex items-center gap-1">
                           <Calendar size={16} className="text-muted-foreground" />
                           <span className={isOverdue(bill.dueDate) && bill.status !== 'paid' ? 'text-red-600 font-semibold' : ''}>
@@ -238,14 +331,30 @@ const RentBillList = ({ filterMemberId = null }) => {
                         </p>
                       )}
 
-                      {bill.paidAmount > 0 && bill.paidAmount < (bill.totalAmount || 0) && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Remaining: </span>
-                          <span className="font-semibold text-red-600">
-                            ৳{((bill.totalAmount || 0) - bill.paidAmount).toFixed(2)}
-                          </span>
-                        </div>
-                      )}
+                      {(() => {
+                        let memberTotal = 0;
+                        let memberPaid = 0;
+                        
+                        if (!isManager && currentUser && bill.memberCategoryAmounts?.[currentUser.uid]) {
+                          Object.entries(bill.memberCategoryAmounts[currentUser.uid]).forEach(([category, amount]) => {
+                            memberTotal += parseFloat(amount) || 0;
+                            memberPaid += parseFloat(bill.memberCategoryPayments?.[currentUser.uid]?.[category]) || 0;
+                          });
+                        }
+                        
+                        const totalAmount = isManager ? (bill.totalAmount || 0) : memberTotal;
+                        const paidAmount = isManager ? bill.paidAmount : memberPaid;
+                        const remaining = totalAmount - paidAmount;
+                        
+                        return paidAmount > 0 && paidAmount < totalAmount ? (
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Remaining: </span>
+                            <span className="font-semibold text-red-600">
+                              ৳{remaining.toFixed(2)}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
 
                     {/* Actions - Only show to managers */}
@@ -367,22 +476,44 @@ const RentBillList = ({ filterMemberId = null }) => {
                             )}
                           </div>
                         </td>
-                        {selectedBill.categories.map((category) => (
-                          <td key={category} className="px-4 py-3 border-r border-border">
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max={selectedBill.memberCategoryAmounts?.[member.uid]?.[category] || 0}
-                              value={paymentAmounts[member.uid]?.[category] || ''}
-                              onChange={(e) => handlePaymentAmountChange(member.uid, category, e.target.value)}
-                              className="w-full px-2 py-1 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                              placeholder="0.00"
-                            />
-                          </td>
-                        ))}
+                        {selectedBill.categories.map((category) => {
+                          const dueAmount = selectedBill.memberCategoryAmounts?.[member.uid]?.[category] || 0;
+                          const paidAmount = selectedBill.memberCategoryPayments?.[member.uid]?.[category] || 0;
+                          const remaining = Math.max(0, parseFloat(dueAmount) - parseFloat(paidAmount));
+                          return (
+                            <td key={category} className="px-4 py-3 border-r border-border">
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  max={remaining}
+                                  value={paymentAmounts[member.uid]?.[category] || ''}
+                                  onChange={(e) => handlePaymentAmountChange(member.uid, category, e.target.value)}
+                                  className="w-full px-2 py-1 rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                                  placeholder={`৳${remaining.toFixed(2)}`}
+                                />
+                              </div>
+                            </td>
+                          );
+                        })}
                         <td className="px-4 py-3 bg-primary/10 font-semibold">
-                          ৳{Object.values(paymentAmounts[member.uid] || {}).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0).toFixed(2)}
+                          <div className="flex items-center justify-between">
+                            <span>৳{Object.values(paymentAmounts[member.uid] || {}).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0).toFixed(2)}</span>
+                            {/* Print button - always show for members with amounts */}
+                            {Object.values(selectedBill.memberCategoryAmounts?.[member.uid] || {}).some(amt => parseFloat(amt) > 0) && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handlePrintReceipt(member)}
+                                icon={<Printer size={14} />}
+                                className="ml-2"
+                              >
+                                Print
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

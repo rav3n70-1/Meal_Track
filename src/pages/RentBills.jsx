@@ -1,5 +1,5 @@
 // Main Rent and Bills page
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, DollarSign, Users, TrendingUp, Receipt, AlertCircle } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
@@ -18,13 +18,59 @@ import { useAuth } from '../context/AuthContext';
 const RentBills = () => {
   const { currentUser } = useAuth();
   const { getUserRole } = useHousehold();
-  const { loading, getStats, isRentOnlyMember } = useRentBills();
+  const { loading, getStats, rentBills } = useRentBills();
   const [showAddBillModal, setShowAddBillModal] = useState(false);
   const [activeTab, setActiveTab] = useState('bills'); // 'bills' or 'members'
 
   const role = getUserRole();
   const isManager = role === 'manager';
-  const stats = getStats();
+  const allStats = getStats();
+
+  // Calculate member-specific stats
+  const stats = useMemo(() => {
+    if (isManager) {
+      return allStats;
+    }
+
+    // Calculate stats only for current member's bills
+    let memberTotalAmount = 0;
+    let memberTotalPaid = 0;
+    let memberUnpaidCount = 0;
+    let memberTotalBills = 0;
+
+    rentBills.forEach(bill => {
+      // Check if member is in this bill
+      const isMemberInBill = bill.memberBreakdown?.some(m => m.memberId === currentUser?.uid);
+      
+      if (isMemberInBill && bill.memberCategoryAmounts?.[currentUser?.uid]) {
+        let billTotal = 0;
+        let billPaid = 0;
+        
+        Object.entries(bill.memberCategoryAmounts[currentUser.uid]).forEach(([category, amount]) => {
+          billTotal += parseFloat(amount) || 0;
+          billPaid += parseFloat(bill.memberCategoryPayments?.[currentUser.uid]?.[category]) || 0;
+        });
+        
+        memberTotalAmount += billTotal;
+        memberTotalPaid += billPaid;
+        memberTotalBills += 1;
+        
+        if (billPaid < billTotal) {
+          memberUnpaidCount += 1;
+        }
+      }
+    });
+
+    return {
+      totalAmount: memberTotalAmount,
+      totalPaid: memberTotalPaid,
+      totalUnpaid: memberTotalAmount - memberTotalPaid,
+      unpaidCount: memberUnpaidCount,
+      partialCount: 0,
+      paidCount: memberTotalBills - memberUnpaidCount,
+      totalBills: memberTotalBills
+    };
+  }, [isManager, allStats, rentBills, currentUser]);
 
   if (loading) {
     return (
