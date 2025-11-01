@@ -87,26 +87,28 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
     try {
       const expensesRef = collection(db, 'households', household.id, 'expenses');
       
-      // Create an expense for each item
-      const promises = items.map(item =>
-        addDoc(expensesRef, {
-          item: item.name.trim(),
+      // Calculate total amount
+      const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+      
+      // Create a single expense with multiple items
+      await addDoc(expensesRef, {
+        items: items.map(item => ({
+          name: item.name.trim(),
           amount: parseFloat(item.amount),
-          buyer: item.buyer,
-          date: formData.date,
-          sharedAmong: formData.sharedAmong,
-          notes: formData.notes.trim(),
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-          createdBy: currentUser.uid,
-          approvedBy: null,
-          approvedAt: null
-        })
-      );
+          buyer: item.buyer
+        })),
+        totalAmount: totalAmount,
+        date: formData.date,
+        sharedAmong: formData.sharedAmong,
+        notes: formData.notes.trim(),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser.uid,
+        approvedBy: null,
+        approvedAt: null
+      });
 
-      await Promise.all(promises);
-
-      toast.success(`${items.length} expense${items.length > 1 ? 's' : ''} submitted for approval!`);
+      toast.success(`Expense with ${items.length} item${items.length > 1 ? 's' : ''} submitted for approval!`);
       
       // Reset form
       setFormData({

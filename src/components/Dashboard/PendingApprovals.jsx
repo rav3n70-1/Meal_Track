@@ -48,7 +48,12 @@ const PendingApprovals = ({ expenses }) => {
         </CardHeader>
         <CardContent className="space-y-3">
           {pendingExpenses.map((expense, index) => {
-            const buyer = memberLookup[expense.buyer];
+            // Support both old and new format
+            const items = expense.items || [{ name: expense.item, amount: expense.amount, buyer: expense.buyer }];
+            const totalAmount = expense.totalAmount || expense.amount;
+            const displayText = items.length > 1 
+              ? `${items[0].name} and ${items.length - 1} more item${items.length > 2 ? 's' : ''}`
+              : items[0].name;
 
             return (
               <motion.div
@@ -59,15 +64,16 @@ const PendingApprovals = ({ expenses }) => {
                 className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-accent rounded-lg"
               >
                 <div className="flex-1">
-                  <h4 className="font-semibold">{expense.item}</h4>
+                  <h4 className="font-semibold">{displayText}</h4>
                   <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar size={14} />
                       {format(new Date(expense.date), 'MMM dd')}
                     </span>
-                    <span>by {getDisplayName(buyer)}</span>
+                    {items.length === 1 && <span>by {getDisplayName(memberLookup[items[0].buyer])}</span>}
+                    {items.length > 1 && <span>{items.length} items</span>}
                     <span className="flex items-center gap-1 font-semibold text-foreground">
-                      ৳{parseFloat(expense.amount).toFixed(2)}
+                      ৳{parseFloat(totalAmount).toFixed(2)}
                     </span>
                   </div>
                 </div>

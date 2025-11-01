@@ -34,10 +34,12 @@ const ExpenseDetails = ({ expense, isOpen, onClose }) => {
     memberLookup[member.uid] = member;
   });
 
-  const buyer = memberLookup[expense.buyer];
+  // Support both old and new format
+  const items = expense.items || [{ name: expense.item, amount: expense.amount, buyer: expense.buyer }];
+  const totalAmount = expense.totalAmount || expense.amount;
   const sharedMembers = expense.sharedAmong?.map(uid => memberLookup[uid]) || [];
   const sharePerPerson = sharedMembers.length > 0 
-    ? parseFloat(expense.amount) / sharedMembers.length 
+    ? parseFloat(totalAmount) / sharedMembers.length 
     : 0;
 
   const handleApprove = async () => {
@@ -147,44 +149,50 @@ const ExpenseDetails = ({ expense, isOpen, onClose }) => {
           {getStatusBadge(expense.status)}
         </div>
 
-        {/* Item and Amount */}
-        <div className="space-y-2">
-          <h3 className="text-2xl font-bold">{expense.item}</h3>
-          <div className="flex items-center gap-2 text-3xl font-bold text-primary">
-            <span className="text-2xl">৳</span>
-            {parseFloat(expense.amount).toFixed(2)}
-          </div>
+        {/* Items List */}
+        <div className="space-y-3">
+          <h4 className="font-semibold text-lg">Items ({items.length})</h4>
+          {items.map((item, idx) => {
+            const buyer = memberLookup[item.buyer];
+            return (
+              <div key={idx} className="p-3 bg-accent rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-bold text-lg">{item.name}</h3>
+                  <div className="flex items-center gap-1 text-2xl font-bold text-primary">
+                    <span className="text-xl">৳</span>
+                    {parseFloat(item.amount).toFixed(2)}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User size={14} />
+                  <span>Paid by {getDisplayName(buyer)}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Date */}
-          <div className="flex items-start gap-3 p-3 bg-accent rounded-lg">
-            <Calendar className="text-primary mt-1" size={20} />
-            <div>
-              <p className="text-sm text-muted-foreground">Date</p>
-              <p className="font-medium">
-                {format(new Date(expense.date), 'MMMM dd, yyyy')}
-              </p>
-            </div>
-          </div>
-
-          {/* Buyer */}
-          <div className="flex items-start gap-3 p-3 bg-accent rounded-lg">
-            <User className="text-primary mt-1" size={20} />
-            <div>
-              <p className="text-sm text-muted-foreground">Paid By</p>
-              <div className="flex items-center gap-2">
-                {buyer?.photoURL && (
-                  <img 
-                    src={buyer.photoURL} 
-                    alt={getDisplayName(buyer)}
-                    className="w-5 h-5 rounded-full"
-                  />
-                )}
-                <p className="font-medium">{getDisplayName(buyer)}</p>
+        {/* Total Amount (if multiple items) */}
+        {items.length > 1 && (
+          <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-lg">Total Amount</span>
+              <div className="flex items-center gap-1 text-3xl font-bold text-primary">
+                <span className="text-2xl">৳</span>
+                {parseFloat(totalAmount).toFixed(2)}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Date */}
+        <div className="flex items-start gap-3 p-3 bg-accent rounded-lg">
+          <Calendar className="text-primary mt-1" size={20} />
+          <div>
+            <p className="text-sm text-muted-foreground">Date</p>
+            <p className="font-medium">
+              {format(new Date(expense.date), 'MMMM dd, yyyy')}
+            </p>
           </div>
         </div>
 
