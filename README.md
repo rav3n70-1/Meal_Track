@@ -8,10 +8,14 @@ A modern, responsive Progressive Web App (PWA) for managing shared household mea
 - 👥 **Role-Based Access** - Manager and Member roles with different permissions
 - 💰 **Expense Management** - Add, approve, and track meal expenses
 - 📊 **Visual Dashboard** - Interactive charts showing spending and balances
+- 💳 **Debt Tracking** - Automatic debt calculation and tracking
+- 🔍 **Detailed Balance View** - Comprehensive breakdown of payments, shares, and debts
+- 👨‍👩‍👧‍👦 **Member Management** - Managers can add, edit, and remove household members
 - 🌓 **Dark Mode** - Toggle between light and dark themes
 - 📱 **PWA Support** - Install on mobile devices for native app experience
 - 🎨 **Modern UI** - Clean design with Tailwind CSS and Framer Motion animations
 - 📈 **Detailed Reports** - See who owes whom with automatic balance calculations
+- 🌐 **Multi-language Support** - Bengali and English language options
 
 ## Tech Stack
 

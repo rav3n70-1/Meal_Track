@@ -16,7 +16,7 @@ import Loading from '../components/ui/Loading';
 
 const Profile = () => {
   const { currentUser, userProfile } = useAuth();
-  const { household, members, expenses, loading, getUserRole } = useHousehold();
+  const { household, members, expenses, debts, loading, getUserRole } = useHousehold();
   const { t } = useLanguage();
   const role = getUserRole();
   const [showNicknameModal, setShowNicknameModal] = useState(false);
@@ -26,12 +26,12 @@ const Profile = () => {
     return members.find(m => m.uid === currentUser?.uid);
   }, [members, currentUser]);
 
-  // Calculate user's balance
+  // Calculate user's balance (including debts)
   const myBalance = useMemo(() => {
-    if (!currentUser || !members.length || !expenses.length) return null;
-    const { memberBalances } = calculateBalances(expenses, members);
+    if (!currentUser || !members.length) return null;
+    const { memberBalances } = calculateBalances(expenses, members, debts);
     return memberBalances[currentUser.uid] || null;
-  }, [currentUser, members, expenses]);
+  }, [currentUser, members, expenses, debts]);
 
   // Get user's expenses
   const myExpenses = useMemo(() => {

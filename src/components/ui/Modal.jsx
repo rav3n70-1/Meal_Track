@@ -58,16 +58,16 @@ const Modal = ({
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className={`relative w-full ${sizes[size]} bg-card rounded-lg shadow-lg border border-border ${className}`}
+              className={`relative w-full ${sizes[size]} max-h-[95vh] sm:max-h-[90vh] bg-card rounded-lg shadow-lg border border-border overflow-hidden flex flex-col ${className}`}
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-6 pb-4 border-b border-border">
-                <h2 className="text-xl font-semibold">{title}</h2>
+              <div className="flex items-center justify-between p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border flex-shrink-0">
+                <h2 className="text-lg sm:text-xl font-semibold">{title}</h2>
                 <button
                   onClick={onClose}
                   className="text-muted-foreground hover:text-foreground transition-colors"
@@ -76,14 +76,14 @@ const Modal = ({
                 </button>
               </div>
 
-              {/* Content */}
-              <div className="p-6">
+              {/* Content - Scrollable */}
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1">
                 {children}
               </div>
 
               {/* Footer */}
               {footer && (
-                <div className="flex items-center justify-end gap-3 p-6 pt-4 border-t border-border">
+                <div className="flex items-center justify-end gap-3 p-4 sm:p-6 pt-3 sm:pt-4 border-t border-border flex-shrink-0">
                   {footer}
                 </div>
               )}

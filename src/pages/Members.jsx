@@ -1,19 +1,27 @@
 // Members page showing all household members
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Users, Copy, Check, Mail, Crown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Users, Copy, Check, Mail, Crown, Edit, Trash2, UserPlus } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
+import MemberManagementModal from '../components/Members/MemberManagementModal';
+import Modal from '../components/ui/Modal';
 import { useHousehold } from '../context/HouseholdContext';
+import { useAuth } from '../context/AuthContext';
 import { getDisplayName, getFullName } from '../utils/displayName';
 import Loading from '../components/ui/Loading';
 import toast from 'react-hot-toast';
 
 const Members = () => {
-  const { household, members, loading } = useHousehold();
+  const { currentUser } = useAuth();
+  const { household, members, loading, getUserRole, updateMember, removeMember } = useHousehold();
+  const role = getUserRole();
   const [copied, setCopied] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
 
   const handleCopyInviteCode = () => {
     if (household?.inviteCode) {
@@ -21,6 +29,40 @@ const Members = () => {
       setCopied(true);
       toast.success('Invite code copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleEditMember = (member) => {
+    setSelectedMember(member);
+    setShowEditModal(true);
+  };
+
+  const handleSaveMember = async (updates) => {
+    try {
+      await updateMember(selectedMember.uid, updates);
+      toast.success('Member updated successfully!');
+      setShowEditModal(false);
+      setSelectedMember(null);
+    } catch (error) {
+      console.error('Error updating member:', error);
+      throw error;
+    }
+  };
+
+  const handleRemoveMember = (member) => {
+    setSelectedMember(member);
+    setShowRemoveConfirm(true);
+  };
+
+  const confirmRemoveMember = async () => {
+    try {
+      await removeMember(selectedMember.uid);
+      toast.success('Member removed successfully!');
+      setShowRemoveConfirm(false);
+      setSelectedMember(null);
+    } catch (error) {
+      toast.error(error.message || 'Failed to remove member');
+      console.error('Error removing member:', error);
     }
   };
 
@@ -91,7 +133,7 @@ const Members = () => {
                   transition={{ delay: index * 0.05 }}
                   className="flex items-center justify-between p-4 bg-accent rounded-lg"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1">
                     {/* Avatar */}
                     {member.photoURL ? (
                       <img
@@ -106,13 +148,16 @@ const Members = () => {
                     )}
 
                     {/* Info */}
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <div>
                           <h3 className="font-semibold flex items-center gap-2">
                             {getDisplayName(member)}
                             {member.role === 'manager' && (
                               <Crown className="text-yellow-500" size={16} />
+                            )}
+                            {member.uid === currentUser?.uid && (
+                              <Badge variant="outline" className="text-xs">You</Badge>
                             )}
                           </h3>
                           {member.nickname && (
@@ -132,12 +177,38 @@ const Members = () => {
                     </div>
                   </div>
 
-                  {/* Role Badge */}
-                  <Badge 
-                    variant={member.role === 'manager' ? 'success' : 'default'}
-                  >
-                    {member.role}
-                  </Badge>
+                  {/* Role Badge and Actions */}
+                  <div className="flex items-center gap-3">
+                    <Badge 
+                      variant={member.role === 'manager' ? 'success' : 'default'}
+                    >
+                      {member.role}
+                    </Badge>
+
+                    {/* Manager Controls */}
+                    {role === 'manager' && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<Edit size={16} />}
+                          onClick={() => handleEditMember(member)}
+                        >
+                          Edit
+                        </Button>
+                        {member.uid !== currentUser?.uid && (
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            icon={<Trash2 size={16} />}
+                            onClick={() => handleRemoveMember(member)}
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -152,6 +223,54 @@ const Members = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Member Modal */}
+      <MemberManagementModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedMember(null);
+        }}
+        member={selectedMember}
+        onSave={handleSaveMember}
+      />
+
+      {/* Remove Member Confirmation Modal */}
+      <Modal
+        isOpen={showRemoveConfirm}
+        onClose={() => {
+          setShowRemoveConfirm(false);
+          setSelectedMember(null);
+        }}
+        title="Remove Member"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-muted-foreground">
+            Are you sure you want to remove <strong>{selectedMember?.name}</strong> from the household?
+            This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              variant="danger"
+              icon={<Trash2 size={18} />}
+              onClick={confirmRemoveMember}
+              className="flex-1"
+            >
+              Remove Member
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRemoveConfirm(false);
+                setSelectedMember(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Layout>
   );
 };

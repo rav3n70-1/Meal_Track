@@ -8,7 +8,9 @@ import {
   Settings, 
   TrendingUp,
   FileText,
-  UserCircle
+  UserCircle,
+  DollarSign,
+  Wallet
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useHousehold } from '../../context/HouseholdContext';
@@ -43,7 +45,9 @@ const Sidebar = ({ isOpen, onClose }) => {
   const navigationItems = [
     { path: '/dashboard', label: t('dashboard'), icon: Home },
     { path: '/profile', label: 'My Profile', icon: UserCircle },
+    { path: '/personal-expenses', label: 'Personal Expenses', icon: Wallet },
     { path: '/expenses', label: t('expenses'), icon: Receipt },
+    { path: '/debts', label: 'Debts', icon: DollarSign },
     { path: '/members', label: t('members'), icon: Users },
     { path: '/reports', label: t('reports'), icon: TrendingUp },
     { path: '/activity', label: t('activity'), icon: FileText },

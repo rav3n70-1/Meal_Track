@@ -81,6 +81,50 @@ service cloud.firestore {
         // Only managers can delete expenses
         allow delete: if isManager(householdId);
       }
+      
+      // Debts subcollection
+      match /debts/{debtId} {
+        // All household members can read debts
+        allow read: if isMember(householdId);
+        
+        // Any household member can create a manual debt record
+        // Auto debts are created by the system (createdBy: 'system')
+        allow create: if isMember(householdId) && 
+                        (request.auth.uid == request.resource.data.createdBy ||
+                         request.resource.data.createdBy == 'system');
+        
+        // Managers can update any debt (for approval/rejection)
+        // Debtors can update their own debts (for recording payments)
+        // System can update auto debts
+        // Only allow updates to approved debts if it's for payments
+        allow update: if isSignedIn() && 
+                        (isManager(householdId) || 
+                         (request.auth.uid == resource.data.debtor && 
+                          resource.data.status == 'approved') ||
+                         (request.auth.uid == resource.data.createdBy && 
+                          resource.data.status == 'pending') ||
+                         (resource.data.type == 'auto' && isMember(householdId)));
+        
+        // Managers can delete debts
+        // Auto debts can be deleted by the system
+        allow delete: if isManager(householdId) || 
+                        (resource.data.type == 'auto' && isMember(householdId));
+      }
+    }
+    
+    // Personal Expenses - private to each user
+    match /personalExpenses/{expenseId} {
+      // Users can only read their own personal expenses
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+      
+      // Users can only create personal expenses for themselves
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
+      
+      // Users can only update their own personal expenses
+      allow update: if isSignedIn() && request.auth.uid == resource.data.userId;
+      
+      // Users can only delete their own personal expenses
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
   }
 }

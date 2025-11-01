@@ -15,7 +15,7 @@ import Loading from '../components/ui/Loading';
 import toast from 'react-hot-toast';
 
 const Reports = () => {
-  const { expenses, members, loading } = useHousehold();
+  const { expenses, members, debts, loading } = useHousehold();
   const [dateRange, setDateRange] = useState('all');
 
   // Filter expenses by date range
@@ -28,12 +28,13 @@ const Reports = () => {
     return getExpenseStats(filteredExpenses);
   }, [filteredExpenses]);
 
-  // Calculate balances
+  // Calculate balances (including debts - debts are not filtered by date)
   const { grandTotal, memberBalances } = useMemo(() => {
-    return calculateBalances(filteredExpenses, members);
-  }, [filteredExpenses, members]);
+    return calculateBalances(filteredExpenses, members, debts);
+  }, [filteredExpenses, members, debts]);
 
-  const debts = useMemo(() => {
+  // Calculate settlement debts (who owes whom)
+  const settlementDebts = useMemo(() => {
     return calculateDebts(memberBalances);
   }, [memberBalances]);
 
@@ -53,7 +54,7 @@ const Reports = () => {
 
   const handleExportBalances = () => {
     try {
-      exportBalancesToExcel(memberBalances, debts);
+      exportBalancesToExcel(memberBalances, settlementDebts);
       toast.success('Balances exported successfully');
     } catch (error) {
       console.error('Export error:', error);

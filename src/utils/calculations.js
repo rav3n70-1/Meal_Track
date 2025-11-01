@@ -5,9 +5,10 @@ import { getDisplayName } from './displayName';
  * Calculate balance summary for all household members
  * @param {Array} expenses - Array of approved expenses
  * @param {Array} members - Array of household members
+ * @param {Array} debts - Array of approved debts (optional)
  * @returns {Object} Balance summary with totals and individual balances
  */
-export const calculateBalances = (expenses, members) => {
+export const calculateBalances = (expenses, members, debts = []) => {
   // Filter only approved expenses
   const approvedExpenses = expenses.filter(exp => exp.status === 'approved');
 
@@ -22,8 +23,11 @@ export const calculateBalances = (expenses, members) => {
       nickname: member.nickname,
       totalPaid: 0,
       totalShare: 0,
+      totalDebtOwed: 0, // Money they owe to others
+      totalDebtCredit: 0, // Money others owe to them
       balance: 0,
-      expenseCount: 0
+      expenseCount: 0,
+      debtCount: 0
     };
   });
 
@@ -52,10 +56,32 @@ export const calculateBalances = (expenses, members) => {
     });
   });
 
+  // Calculate debt balances (only approved and not fully paid debts)
+  const activeDebts = debts.filter(debt => debt.status === 'approved' && debt.remainingAmount > 0);
+  
+  activeDebts.forEach(debt => {
+    const remainingAmount = parseFloat(debt.remainingAmount) || 0;
+    
+    // Debtor owes money (negative impact on balance)
+    if (memberBalances[debt.debtor]) {
+      memberBalances[debt.debtor].totalDebtOwed += remainingAmount;
+      memberBalances[debt.debtor].debtCount += 1;
+    }
+    
+    // Creditor is owed money (positive impact on balance)
+    if (memberBalances[debt.creditor]) {
+      memberBalances[debt.creditor].totalDebtCredit += remainingAmount;
+    }
+  });
+
   // Calculate final balance for each member
   Object.keys(memberBalances).forEach(uid => {
+    // Balance = (money paid - share of expenses) + (money owed to you - money you owe)
     memberBalances[uid].balance = 
-      memberBalances[uid].totalPaid - memberBalances[uid].totalShare;
+      memberBalances[uid].totalPaid 
+      - memberBalances[uid].totalShare 
+      + memberBalances[uid].totalDebtCredit 
+      - memberBalances[uid].totalDebtOwed;
   });
 
   return {

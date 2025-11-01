@@ -8,6 +8,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { HouseholdProvider } from './context/HouseholdContext';
+import { PersonalExpenseProvider } from './context/PersonalExpenseContext';
 
 // Components
 import AuthHandler from './components/AuthHandler';
@@ -18,10 +19,12 @@ import Setup from './pages/Setup';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Expenses from './pages/Expenses';
+import Debts from './pages/Debts';
 import Members from './pages/Members';
 import Reports from './pages/Reports';
 import Activity from './pages/Activity';
 import Settings from './pages/Settings';
+import PersonalExpenses from './pages/PersonalExpenses';
 
 // Loading Component
 const PageLoader = () => (
@@ -83,7 +86,8 @@ function App() {
         <AuthProvider>
           <AuthHandler>
             <HouseholdProvider>
-              <Router>
+              <PersonalExpenseProvider>
+                <Router>
                 <Routes>
                   {/* Public Route - Login */}
                   <Route 
@@ -134,6 +138,15 @@ function App() {
                   />
 
                   <Route 
+                    path="/debts" 
+                    element={
+                      <ProtectedRoute>
+                        <Debts />
+                      </ProtectedRoute>
+                    } 
+                  />
+
+                  <Route 
                     path="/members" 
                     element={
                       <ProtectedRoute>
@@ -165,6 +178,15 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <Settings />
+                      </ProtectedRoute>
+                    } 
+                  />
+
+                  <Route 
+                    path="/personal-expenses" 
+                    element={
+                      <ProtectedRoute>
+                        <PersonalExpenses />
                       </ProtectedRoute>
                     } 
                   />
@@ -232,6 +254,7 @@ function App() {
                   },
                 }}
               />
+              </PersonalExpenseProvider>
             </HouseholdProvider>
           </AuthHandler>
         </AuthProvider>

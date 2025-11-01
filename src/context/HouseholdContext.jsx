@@ -7,12 +7,14 @@ import {
   getDocs, 
   setDoc, 
   updateDoc,
+  deleteDoc,
   onSnapshot,
   query,
   where
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
+import { updateAutomaticDebts } from '../utils/debtGeneration';
 
 const HouseholdContext = createContext();
 
@@ -29,6 +31,7 @@ export const HouseholdProvider = ({ children }) => {
   const [household, setHousehold] = useState(null);
   const [members, setMembers] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [debts, setDebts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Generate unique household invite code
@@ -171,12 +174,73 @@ export const HouseholdProvider = ({ children }) => {
     return member?.role || null;
   };
 
+  // Update member information (manager only)
+  const updateMember = async (memberId, updates) => {
+    if (!currentUser || !household) throw new Error('Not authorized');
+    
+    const role = getUserRole();
+    if (role !== 'manager' && currentUser.uid !== memberId) {
+      throw new Error('Only managers can update other members');
+    }
+
+    try {
+      const memberRef = doc(db, 'households', household.id, 'members', memberId);
+      await updateDoc(memberRef, {
+        ...updates,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error updating member:', error);
+      throw error;
+    }
+  };
+
+  // Remove member from household (manager only)
+  const removeMember = async (memberId) => {
+    if (!currentUser || !household) throw new Error('Not authorized');
+    
+    const role = getUserRole();
+    if (role !== 'manager') {
+      throw new Error('Only managers can remove members');
+    }
+
+    // Prevent removing yourself
+    if (memberId === currentUser.uid) {
+      throw new Error('You cannot remove yourself from the household');
+    }
+
+    // Prevent removing if it's the last manager
+    const managers = members.filter(m => m.role === 'manager');
+    const memberToRemove = members.find(m => m.uid === memberId);
+    if (managers.length === 1 && memberToRemove?.role === 'manager') {
+      throw new Error('Cannot remove the last manager. Assign another manager first.');
+    }
+
+    try {
+      const memberRef = doc(db, 'households', household.id, 'members', memberId);
+      await deleteDoc(memberRef);
+
+      // Update user profile to remove household ID
+      const userRef = doc(db, 'users', memberId);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        await updateDoc(userRef, {
+          householdId: null
+        });
+      }
+    } catch (error) {
+      console.error('Error removing member:', error);
+      throw error;
+    }
+  };
+
   // Load household data
   useEffect(() => {
     if (!currentUser || !userProfile?.householdId) {
       setHousehold(null);
       setMembers([]);
       setExpenses([]);
+      setDebts([]);
       setLoading(false);
       return;
     }
@@ -213,23 +277,57 @@ export const HouseholdProvider = ({ children }) => {
       setExpenses(expensesData);
     });
 
+    // Listen to debts changes
+    const debtsRef = collection(db, 'households', householdId, 'debts');
+    const unsubscribeDebts = onSnapshot(debtsRef, (snapshot) => {
+      const debtsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      // Sort by date descending
+      debtsData.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setDebts(debtsData);
+    });
+
     setLoading(false);
 
     return () => {
       unsubscribeHousehold();
       unsubscribeMembers();
       unsubscribeExpenses();
+      unsubscribeDebts();
     };
   }, [currentUser, userProfile]);
+
+  // Auto-generate debts from expenses whenever expenses or members change
+  useEffect(() => {
+    if (!household || !members.length || !expenses.length) return;
+
+    const generateDebts = async () => {
+      try {
+        await updateAutomaticDebts(household.id, expenses, members, debts);
+      } catch (error) {
+        console.error('Error auto-generating debts:', error);
+      }
+    };
+
+    // Add a small delay to avoid too many writes
+    const timeoutId = setTimeout(generateDebts, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [expenses, members, household, debts]);
 
   const value = {
     household,
     members,
     expenses,
+    debts,
     loading,
     createHousehold,
     joinHousehold,
-    getUserRole
+    getUserRole,
+    updateMember,
+    removeMember
   };
 
   return (

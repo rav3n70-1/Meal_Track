@@ -1,15 +1,17 @@
 // Main dashboard page with different views for manager and members
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Receipt, TrendingUp, Users, Plus } from 'lucide-react';
+import { Receipt, TrendingUp, Users, Plus, Info } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import StatsCard from '../components/Dashboard/StatsCard';
 import PendingApprovals from '../components/Dashboard/PendingApprovals';
 import BalanceChart from '../components/Dashboard/BalanceChart';
 import ExpenseChart from '../components/Dashboard/ExpenseChart';
 import BalanceSummary from '../components/Dashboard/BalanceSummary';
+import BalanceDetailsModal from '../components/Dashboard/BalanceDetailsModal';
 import Modal from '../components/ui/Modal';
 import ExpenseForm from '../components/Expenses/ExpenseForm';
+import Button from '../components/ui/Button';
 import { useHousehold } from '../context/HouseholdContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -23,20 +25,21 @@ const TakaIcon = ({ size = 24 }) => (
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
-  const { household, members, expenses, loading, getUserRole } = useHousehold();
+  const { household, members, expenses, debts, loading, getUserRole } = useHousehold();
   const { t } = useLanguage();
   const role = getUserRole();
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showBalanceDetails, setShowBalanceDetails] = useState(false);
 
   // Calculate statistics
   const stats = useMemo(() => {
     return getExpenseStats(expenses);
   }, [expenses]);
 
-  // Calculate balances
+  // Calculate balances (including debts)
   const { grandTotal, memberBalances } = useMemo(() => {
-    return calculateBalances(expenses, members);
-  }, [expenses, members]);
+    return calculateBalances(expenses, members, debts);
+  }, [expenses, members, debts]);
 
   // Get current user's balance
   const myBalance = useMemo(() => {
@@ -105,7 +108,7 @@ const Dashboard = () => {
             className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 rounded-lg p-6 shadow-lg"
           >
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
+              <div className="flex-1">
                 <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
                   <motion.span
                     animate={{ rotate: [0, 360] }}
@@ -115,33 +118,59 @@ const Dashboard = () => {
                   </motion.span>
                   {t('myBalance')}
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  {t('youvePaid')} ৳{myBalance.totalPaid.toFixed(2)} • {t('yourShare')} ৳{myBalance.totalShare.toFixed(2)}
-                </p>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  {myBalance.totalDebtCredit > 0 && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-green-600 dark:text-green-400">
+                        Owed to you: ৳{myBalance.totalDebtCredit.toFixed(2)}
+                      </span>
+                    </p>
+                  )}
+                  {myBalance.totalDebtOwed > 0 && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-red-600 dark:text-red-400">
+                        You owe: ৳{myBalance.totalDebtOwed.toFixed(2)}
+                      </span>
+                    </p>
+                  )}
+                  {myBalance.totalDebtCredit === 0 && myBalance.totalDebtOwed === 0 && (
+                    <p className="text-muted-foreground">No active debts</p>
+                  )}
+                </div>
               </div>
-              <motion.div 
-                className="text-3xl font-bold"
-                initial={{ scale: 0.5 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 200 }}
-              >
-                {myBalance.balance >= 0 ? (
-                  <span className="text-green-600 dark:text-green-400">
-                    +৳{myBalance.balance.toFixed(2)}
-                  </span>
-                ) : (
-                  <span className="text-red-600 dark:text-red-400">
-                    ৳{myBalance.balance.toFixed(2)}
-                  </span>
-                )}
-              </motion.div>
+              <div className="flex flex-col items-end gap-3">
+                <motion.div 
+                  className="text-3xl font-bold"
+                  initial={{ scale: 0.5 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 200 }}
+                >
+                  {(myBalance.totalDebtCredit - myBalance.totalDebtOwed) >= 0 ? (
+                    <span className="text-green-600 dark:text-green-400">
+                      +৳{(myBalance.totalDebtCredit - myBalance.totalDebtOwed).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="text-red-600 dark:text-red-400">
+                      ৳{(myBalance.totalDebtCredit - myBalance.totalDebtOwed).toFixed(2)}
+                    </span>
+                  )}
+                </motion.div>
+                <Button
+                  onClick={() => setShowBalanceDetails(true)}
+                  variant="outline"
+                  size="sm"
+                  icon={<Info size={16} />}
+                >
+                  View Details
+                </Button>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground mt-2">
-              {myBalance.balance > 0 
-                ? t('othersOweYou')
-                : myBalance.balance < 0 
-                ? t('youOweOthers')
-                : t('allSettled')}
+            <p className="text-sm text-muted-foreground mt-3">
+              {(myBalance.totalDebtCredit - myBalance.totalDebtOwed) > 0 
+                ? 'Others owe you money'
+                : (myBalance.totalDebtCredit - myBalance.totalDebtOwed) < 0 
+                ? 'You owe money to others'
+                : 'All debts settled!'}
             </p>
           </motion.div>
         )}
@@ -186,6 +215,14 @@ const Dashboard = () => {
           onCancel={() => setShowAddExpense(false)}
         />
       </Modal>
+
+      {/* Balance Details Modal */}
+      <BalanceDetailsModal
+        isOpen={showBalanceDetails}
+        onClose={() => setShowBalanceDetails(false)}
+        balance={myBalance}
+        userName={currentUser?.displayName}
+      />
     </Layout>
   );
 };
