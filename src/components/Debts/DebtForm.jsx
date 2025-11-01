@@ -7,7 +7,8 @@ import { useHousehold } from '../../context/HouseholdContext';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
-import { Calendar, DollarSign, FileText } from 'lucide-react';
+import DatePicker from '../ui/DatePicker';
+import { DollarSign, FileText } from 'lucide-react';
 import { getDisplayName } from '../../utils/displayName';
 import toast from 'react-hot-toast';
 
@@ -151,13 +152,11 @@ const DebtForm = ({ onSuccess, onCancel }) => {
         required
       />
 
-      <Input
+      <DatePicker
         label="Date"
         name="date"
-        type="date"
         value={formData.date}
         onChange={handleChange}
-        icon={<Calendar size={18} />}
         required
       />
 

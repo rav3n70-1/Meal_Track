@@ -220,13 +220,21 @@ export const HouseholdProvider = ({ children }) => {
       const memberRef = doc(db, 'households', household.id, 'members', memberId);
       await deleteDoc(memberRef);
 
-      // Update user profile to remove household ID
-      const userRef = doc(db, 'users', memberId);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        await updateDoc(userRef, {
-          householdId: null
-        });
+      // Try to update user profile to remove household ID
+      // This may fail due to permissions (only users can update their own profile)
+      // but that's okay - the member is already removed from the household
+      try {
+        const userRef = doc(db, 'users', memberId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          await updateDoc(userRef, {
+            householdId: null
+          });
+        }
+      } catch (userUpdateError) {
+        // Silently fail - user will see they're removed when they reload
+        // They can rejoin another household if needed
+        console.log('Could not update user document (permissions), but member was removed successfully');
       }
     } catch (error) {
       console.error('Error removing member:', error);
@@ -257,13 +265,39 @@ export const HouseholdProvider = ({ children }) => {
 
     // Listen to members changes
     const membersRef = collection(db, 'households', householdId, 'members');
-    const unsubscribeMembers = onSnapshot(membersRef, (snapshot) => {
-      const membersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setMembers(membersData);
-    });
+    const unsubscribeMembers = onSnapshot(
+      membersRef, 
+      (snapshot) => {
+        const membersData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setMembers(membersData);
+
+        // Check if current user is still a member
+        const isStillMember = membersData.some(m => m.uid === currentUser.uid);
+        if (!isStillMember) {
+          // User has been removed from household - clear their householdId
+          const userRef = doc(db, 'users', currentUser.uid);
+          updateDoc(userRef, { householdId: null }).catch(err => {
+            console.log('Could not clear householdId, will be handled on next login');
+          });
+          // Reload user profile to reflect the change
+          loadUserProfile(currentUser.uid);
+        }
+      },
+      (error) => {
+        console.error('Error loading members:', error);
+        // If we get a permission error, user might have been removed
+        if (error.code === 'permission-denied') {
+          const userRef = doc(db, 'users', currentUser.uid);
+          updateDoc(userRef, { householdId: null }).catch(err => {
+            console.log('Could not clear householdId');
+          });
+          loadUserProfile(currentUser.uid);
+        }
+      }
+    );
 
     // Listen to expenses changes
     const expensesRef = collection(db, 'households', householdId, 'expenses');

@@ -8,6 +8,7 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
+import DatePicker from '../components/ui/DatePicker';
 import { usePersonalExpense } from '../context/PersonalExpenseContext';
 import { useAuth } from '../context/AuthContext';
 import Loading from '../components/ui/Loading';
@@ -327,18 +328,13 @@ const PersonalExpenses = () => {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Date <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              required
-            />
-          </div>
+          <DatePicker
+            label="Date"
+            name="date"
+            value={formData.date}
+            onChange={handleChange}
+            required
+          />
 
           <div>
             <label className="block text-sm font-medium mb-2">
@@ -427,18 +423,13 @@ const PersonalExpenses = () => {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Date <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              required
-            />
-          </div>
+          <DatePicker
+            label="Date"
+            name="date"
+            value={formData.date}
+            onChange={handleChange}
+            required
+          />
 
           <div>
             <label className="block text-sm font-medium mb-2">

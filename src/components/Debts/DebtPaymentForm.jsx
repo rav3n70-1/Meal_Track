@@ -6,7 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
-import { Calendar, DollarSign } from 'lucide-react';
+import DatePicker from '../ui/DatePicker';
+import { DollarSign } from 'lucide-react';
 import { getDisplayName } from '../../utils/displayName';
 import toast from 'react-hot-toast';
 import confetti from 'canvas-confetti';
@@ -166,13 +167,11 @@ const DebtPaymentForm = ({ debt, onSuccess, onCancel }) => {
           required
         />
 
-        <Input
+        <DatePicker
           label="Payment Date"
           name="date"
-          type="date"
           value={formData.date}
           onChange={handleChange}
-          icon={<Calendar size={18} />}
           required
         />
 

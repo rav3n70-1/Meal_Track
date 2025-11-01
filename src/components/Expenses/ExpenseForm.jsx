@@ -1,4 +1,4 @@
-// Form component for adding new expenses
+// Form component for adding new expenses (supports multiple items)
 import React, { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -7,9 +7,11 @@ import { useHousehold } from '../../context/HouseholdContext';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
-import { Calendar, ShoppingBag } from 'lucide-react';
+import DatePicker from '../ui/DatePicker';
+import { ShoppingBag, Plus, Trash2, X } from 'lucide-react';
 import { getDisplayName } from '../../utils/displayName';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ExpenseForm = ({ onSuccess, onCancel }) => {
   const { currentUser } = useAuth();
@@ -17,13 +19,19 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    item: '',
-    amount: '',
-    buyer: currentUser?.uid || '',
     date: new Date().toISOString().split('T')[0],
     sharedAmong: [],
     notes: ''
   });
+
+  const [items, setItems] = useState([
+    {
+      id: Date.now(),
+      name: '',
+      amount: '',
+      buyer: currentUser?.uid || ''
+    }
+  ]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,35 +41,44 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
     }));
   };
 
-  const handleSharedAmongChange = (e) => {
-    const options = e.target.options;
-    const selected = [];
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].selected) {
-        selected.push(options[i].value);
-      }
-    }
-    setFormData(prev => ({
+  const handleItemChange = (id, field, value) => {
+    setItems(prev => prev.map(item =>
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+  };
+
+  const addItem = () => {
+    setItems(prev => [
       ...prev,
-      sharedAmong: selected
-    }));
+      {
+        id: Date.now(),
+        name: '',
+        amount: '',
+        buyer: currentUser?.uid || ''
+      }
+    ]);
+  };
+
+  const removeItem = (id) => {
+    if (items.length === 1) {
+      toast.error('You must have at least one item');
+      return;
+    }
+    setItems(prev => prev.filter(item => item.id !== id));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.item.trim()) {
-      toast.error('Please enter item name');
-      return;
-    }
-
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      toast.error('Please enter a valid amount');
+    // Validate items
+    const invalidItem = items.find(item => !item.name.trim() || !item.amount || parseFloat(item.amount) <= 0);
+    if (invalidItem) {
+      toast.error('Please fill in all item details with valid amounts');
       return;
     }
 
     if (formData.sharedAmong.length === 0) {
-      toast.error('Please select at least one person to share the expense');
+      toast.error('Please select at least one person to share the expenses');
       return;
     }
 
@@ -70,87 +87,153 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
     try {
       const expensesRef = collection(db, 'households', household.id, 'expenses');
       
-      await addDoc(expensesRef, {
-        item: formData.item.trim(),
-        amount: parseFloat(formData.amount),
-        buyer: formData.buyer,
-        date: formData.date,
-        sharedAmong: formData.sharedAmong,
-        notes: formData.notes.trim(),
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        createdBy: currentUser.uid,
-        approvedBy: null,
-        approvedAt: null
-      });
+      // Create an expense for each item
+      const promises = items.map(item =>
+        addDoc(expensesRef, {
+          item: item.name.trim(),
+          amount: parseFloat(item.amount),
+          buyer: item.buyer,
+          date: formData.date,
+          sharedAmong: formData.sharedAmong,
+          notes: formData.notes.trim(),
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          createdBy: currentUser.uid,
+          approvedBy: null,
+          approvedAt: null
+        })
+      );
 
-      toast.success('Expense submitted for approval!');
+      await Promise.all(promises);
+
+      toast.success(`${items.length} expense${items.length > 1 ? 's' : ''} submitted for approval!`);
       
       // Reset form
       setFormData({
-        item: '',
-        amount: '',
-        buyer: currentUser?.uid || '',
         date: new Date().toISOString().split('T')[0],
         sharedAmong: [],
         notes: ''
       });
+      setItems([
+        {
+          id: Date.now(),
+          name: '',
+          amount: '',
+          buyer: currentUser?.uid || ''
+        }
+      ]);
 
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Error adding expense:', error);
-      toast.error('Failed to add expense');
+      console.error('Error adding expenses:', error);
+      toast.error('Failed to add expenses');
     } finally {
       setLoading(false);
     }
   };
 
+  const totalAmount = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-      <Input
-        label="Item Name"
-        name="item"
-        value={formData.item}
-        onChange={handleChange}
-        placeholder="e.g., Groceries, Food etc."
-        icon={<ShoppingBag size={18} />}
-        required
-      />
-
-      <Input
-        label="Amount (৳)"
-        name="amount"
-        type="number"
-        step="0.01"
-        min="0"
-        value={formData.amount}
-        onChange={handleChange}
-        placeholder="0.00"
-        icon={<span className="text-primary font-bold">৳</span>}
-        required
-      />
-
-      <Select
-        label="Buyer"
-        name="buyer"
-        value={formData.buyer}
-        onChange={handleChange}
-        options={members.map(member => ({
-          value: member.uid,
-          label: getDisplayName(member)
-        }))}
-        required
-      />
-
-      <Input
-        label="Date"
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Date Selection */}
+      <DatePicker
+        label="Purchase Date"
         name="date"
-        type="date"
         value={formData.date}
         onChange={handleChange}
-        icon={<Calendar size={18} />}
         required
       />
+
+      {/* Items Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Items ({items.length})</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            icon={<Plus size={16} />}
+            onClick={addItem}
+          >
+            Add Item
+          </Button>
+        </div>
+
+        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+          <AnimatePresence>
+            {items.map((item, index) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="p-4 border border-border rounded-lg space-y-3 bg-accent/50"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Item #{index + 1}
+                  </span>
+                  {items.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      icon={<X size={16} />}
+                      onClick={() => removeItem(item.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+
+                <Input
+                  label="Item Name"
+                  value={item.name}
+                  onChange={(e) => handleItemChange(item.id, 'name', e.target.value)}
+                  placeholder="e.g., Rice, Vegetables, etc."
+                  icon={<ShoppingBag size={18} />}
+                  required
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input
+                    label="Amount (৳)"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={item.amount}
+                    onChange={(e) => handleItemChange(item.id, 'amount', e.target.value)}
+                    placeholder="0.00"
+                    icon={<span className="text-primary font-bold">৳</span>}
+                    required
+                  />
+
+                  <Select
+                    label="Buyer"
+                    value={item.buyer}
+                    onChange={(e) => handleItemChange(item.id, 'buyer', e.target.value)}
+                    options={members.map(member => ({
+                      value: member.uid,
+                      label: getDisplayName(member)
+                    }))}
+                    required
+                  />
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Total */}
+        <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+          <div className="flex justify-between items-center">
+            <span className="font-semibold">Total Amount:</span>
+            <span className="text-xl font-bold text-primary">৳{totalAmount.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
 
       <div className="space-y-2">
         <label className="text-sm font-medium leading-none">
