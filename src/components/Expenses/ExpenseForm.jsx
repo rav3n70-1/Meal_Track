@@ -1,6 +1,6 @@
 // Form component for adding new expenses (supports multiple items)
-import React, { useState } from 'react';
-import { collection, addDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
@@ -13,15 +13,16 @@ import { getDisplayName } from '../../utils/displayName';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const ExpenseForm = ({ onSuccess, onCancel }) => {
+const ExpenseForm = ({ expense = null, onSuccess, onCancel }) => {
   const { currentUser } = useAuth();
   const { household, members } = useHousehold();
   const [loading, setLoading] = useState(false);
 
+  // Initialize form data based on whether we're editing or creating
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    sharedAmong: [],
-    notes: ''
+    date: expense?.date || new Date().toISOString().split('T')[0],
+    sharedAmong: expense?.sharedAmong || [],
+    notes: expense?.notes || ''
   });
 
   const [items, setItems] = useState([
@@ -32,6 +33,35 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
       buyer: currentUser?.uid || ''
     }
   ]);
+
+  // Load expense data if editing
+  useEffect(() => {
+    if (expense) {
+      // Load form data
+      setFormData({
+        date: expense.date || new Date().toISOString().split('T')[0],
+        sharedAmong: expense.sharedAmong || [],
+        notes: expense.notes || ''
+      });
+
+      // Support both old and new format
+      if (expense.items && Array.isArray(expense.items)) {
+        setItems(expense.items.map((item, idx) => ({
+          id: Date.now() + idx,
+          name: item.name,
+          amount: item.amount.toString(),
+          buyer: item.buyer
+        })));
+      } else {
+        setItems([{
+          id: Date.now(),
+          name: expense.item || '',
+          amount: (expense.amount || 0).toString(),
+          buyer: expense.buyer || currentUser?.uid || ''
+        }]);
+      }
+    }
+  }, [expense]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -85,13 +115,10 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
     setLoading(true);
 
     try {
-      const expensesRef = collection(db, 'households', household.id, 'expenses');
-      
       // Calculate total amount
       const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.amount), 0);
       
-      // Create a single expense with multiple items
-      await addDoc(expensesRef, {
+      const expenseData = {
         items: items.map(item => ({
           name: item.name.trim(),
           amount: parseFloat(item.amount),
@@ -100,35 +127,47 @@ const ExpenseForm = ({ onSuccess, onCancel }) => {
         totalAmount: totalAmount,
         date: formData.date,
         sharedAmong: formData.sharedAmong,
-        notes: formData.notes.trim(),
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        createdBy: currentUser.uid,
-        approvedBy: null,
-        approvedAt: null
-      });
+        notes: formData.notes.trim()
+      };
 
-      toast.success(`Expense with ${items.length} item${items.length > 1 ? 's' : ''} submitted for approval!`);
-      
-      // Reset form
-      setFormData({
-        date: new Date().toISOString().split('T')[0],
-        sharedAmong: [],
-        notes: ''
-      });
-      setItems([
-        {
-          id: Date.now(),
-          name: '',
-          amount: '',
-          buyer: currentUser?.uid || ''
-        }
-      ]);
+      if (expense) {
+        // Update existing expense - preserve original fields
+        const expenseRef = doc(db, 'households', household.id, 'expenses', expense.id);
+        await updateDoc(expenseRef, {
+          ...expenseData,
+          // Preserve original metadata
+          status: expense.status || 'pending',
+          createdAt: expense.createdAt || new Date().toISOString(),
+          createdBy: expense.createdBy || currentUser.uid,
+          approvedBy: expense.approvedBy || null,
+          approvedAt: expense.approvedAt || null,
+          updatedAt: new Date().toISOString()
+        });
+        toast.success(`Expense updated successfully!`);
+      } else {
+        // Create new expense
+        const expensesRef = collection(db, 'households', household.id, 'expenses');
+        await addDoc(expensesRef, {
+          ...expenseData,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          createdBy: currentUser.uid,
+          approvedBy: null,
+          approvedAt: null
+        });
+        toast.success(`Expense with ${items.length} item${items.length > 1 ? 's' : ''} submitted for approval!`);
+      }
 
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Error adding expenses:', error);
-      toast.error('Failed to add expenses');
+      console.error('Error saving expense:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        householdId: household?.id,
+        expenseId: expense?.id
+      });
+      toast.error(error.message || `Failed to ${expense ? 'update' : 'add'} expense. Check console for details.`);
     } finally {
       setLoading(false);
     }

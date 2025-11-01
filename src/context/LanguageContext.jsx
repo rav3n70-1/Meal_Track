@@ -75,7 +75,34 @@ const translations = {
     
     // Currency
     currency: '৳',
-    currencyName: 'Taka'
+    currencyName: 'Taka',
+    
+    // Rent & Bills
+    rentBills: 'Rent & Bills',
+    rent: 'Rent',
+    bills: 'Bills',
+    rentOnly: 'Rent Only',
+    addBill: 'Add Bill',
+    editBill: 'Edit Bill',
+    recordPayment: 'Record Payment',
+    billType: 'Bill Type',
+    electricity: 'Electricity',
+    water: 'Water',
+    gas: 'Gas',
+    internet: 'Internet',
+    other: 'Other',
+    dueDate: 'Due Date',
+    paidAmount: 'Paid Amount',
+    totalAmount: 'Total Amount',
+    unpaid: 'Unpaid',
+    partial: 'Partial',
+    paid: 'Paid',
+    overdue: 'Overdue',
+    description: 'Description',
+    paymentNotes: 'Payment Notes',
+    addRentMember: 'Add Rent Member',
+    rentOnlyMembers: 'Rent-Only Members',
+    recentBills: 'Recent Bills'
   },
   bn: {
     // Navigation
@@ -139,7 +166,34 @@ const translations = {
     
     // Currency
     currency: '৳',
-    currencyName: 'টাকা'
+    currencyName: 'টাকা',
+    
+    // Rent & Bills
+    rentBills: 'ভাড়া ও বিল',
+    rent: 'ভাড়া',
+    bills: 'বিল',
+    rentOnly: 'শুধুমাত্র ভাড়া',
+    addBill: 'বিল যোগ করুন',
+    editBill: 'বিল সম্পাদনা',
+    recordPayment: 'পেমেন্ট রেকর্ড করুন',
+    billType: 'বিলের ধরন',
+    electricity: 'বিদ্যুৎ',
+    water: 'পানি',
+    gas: 'গ্যাস',
+    internet: 'ইন্টারনেট',
+    other: 'অন্যান্য',
+    dueDate: 'পরিশোধের তারিখ',
+    paidAmount: 'পরিশোধিত পরিমাণ',
+    totalAmount: 'মোট পরিমাণ',
+    unpaid: 'অপরিশোধিত',
+    partial: 'আংশিক',
+    paid: 'পরিশোধিত',
+    overdue: 'বকেয়া',
+    description: 'বর্ণনা',
+    paymentNotes: 'পেমেন্ট নোট',
+    addRentMember: 'ভাড়া সদস্য যোগ করুন',
+    rentOnlyMembers: 'শুধুমাত্র ভাড়া সদস্য',
+    recentBills: 'সাম্প্রতিক বিল'
   }
 };
 

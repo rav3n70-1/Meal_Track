@@ -1,6 +1,6 @@
 // Component to show detailed expense information and approval actions
-import React, { useState } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { format } from 'date-fns';
 import { 
@@ -10,7 +10,9 @@ import {
   User,
   Users,
   FileText,
-  Clock
+  Clock,
+  Edit2,
+  Trash2
 } from 'lucide-react';
 import { getDisplayName } from '../../utils/displayName';
 import Modal from '../ui/Modal';
@@ -20,11 +22,24 @@ import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
 import toast from 'react-hot-toast';
 
-const ExpenseDetails = ({ expense, isOpen, onClose }) => {
+const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
   const { currentUser } = useAuth();
   const { household, members, getUserRole } = useHousehold();
   const [loading, setLoading] = useState(false);
   const role = getUserRole();
+
+  // Debug logging for managers
+  useEffect(() => {
+    if (isOpen && expense) {
+      console.log('ExpenseDetails Debug:', {
+        role,
+        isManager: role === 'manager',
+        hasOnEdit: !!onEdit,
+        expenseId: expense.id,
+        householdId: household?.id
+      });
+    }
+  }, [isOpen, expense, role, onEdit, household]);
 
   if (!expense) return null;
 
@@ -92,6 +107,43 @@ const ExpenseDetails = ({ expense, isOpen, onClose }) => {
     }
   };
 
+  const handleDelete = async () => {
+    if (role !== 'manager') {
+      toast.error('Only managers can delete expenses');
+      return;
+    }
+
+    if (!household?.id) {
+      toast.error('Household not found');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this expense? This action cannot be undone.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const expenseRef = doc(db, 'households', household.id, 'expenses', expense.id);
+      await deleteDoc(expenseRef);
+
+      toast.success('Expense deleted successfully');
+      onClose();
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        householdId: household?.id,
+        expenseId: expense.id,
+        role: role
+      });
+      toast.error(error.message || 'Failed to delete expense. Check console for details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'approved':
@@ -126,11 +178,34 @@ const ExpenseDetails = ({ expense, isOpen, onClose }) => {
           </Button>
         </>
       )}
-      {expense.status !== 'pending' && (
-        <Button variant="outline" onClick={onClose}>
-          Close
-        </Button>
+      {role === 'manager' && (
+        <>
+          {onEdit && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                onClose();
+                onEdit(expense);
+              }}
+              disabled={loading}
+              icon={<Edit2 size={18} />}
+            >
+              Edit
+            </Button>
+          )}
+          <Button
+            variant="danger"
+            onClick={handleDelete}
+            disabled={loading}
+            icon={<Trash2 size={18} />}
+          >
+            Delete
+          </Button>
+        </>
       )}
+      <Button variant="outline" onClick={onClose}>
+        Close
+      </Button>
     </>
   );
 

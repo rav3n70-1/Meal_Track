@@ -9,6 +9,7 @@ import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { HouseholdProvider } from './context/HouseholdContext';
 import { PersonalExpenseProvider } from './context/PersonalExpenseContext';
+import { RentBillsProvider } from './context/RentBillsContext';
 
 // Components
 import AuthHandler from './components/AuthHandler';
@@ -20,6 +21,7 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Expenses from './pages/Expenses';
 import Debts from './pages/Debts';
+import RentBills from './pages/RentBills';
 import Members from './pages/Members';
 import Reports from './pages/Reports';
 import Activity from './pages/Activity';
@@ -87,8 +89,9 @@ function App() {
           <AuthHandler>
             <HouseholdProvider>
               <PersonalExpenseProvider>
-                <Router>
-                <Routes>
+                <RentBillsProvider>
+                  <Router>
+                  <Routes>
                   {/* Public Route - Login */}
                   <Route 
                     path="/login" 
@@ -138,16 +141,25 @@ function App() {
                   />
 
                   <Route 
-                    path="/debts" 
-                    element={
-                      <ProtectedRoute>
-                        <Debts />
-                      </ProtectedRoute>
-                    } 
-                  />
+                  path="/debts" 
+                  element={
+                    <ProtectedRoute>
+                      <Debts />
+                    </ProtectedRoute>
+                  } 
+                />
 
-                  <Route 
-                    path="/members" 
+                <Route 
+                  path="/rent-bills" 
+                  element={
+                    <ProtectedRoute>
+                      <RentBills />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="/members"
                     element={
                       <ProtectedRoute>
                         <Members />
@@ -220,40 +232,41 @@ function App() {
                     } 
                   />
                 </Routes>
-              </Router>
+                </Router>
 
-              {/* Toast Notifications */}
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: 'hsl(var(--card))',
-                    color: 'hsl(var(--card-foreground))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '0.5rem',
-                    padding: '1rem',
-                  },
-                  success: {
-                    iconTheme: {
-                      primary: '#10b981',
-                      secondary: '#ffffff',
+                {/* Toast Notifications */}
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: 'hsl(var(--card))',
+                      color: 'hsl(var(--card-foreground))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '0.5rem',
+                      padding: '1rem',
                     },
-                  },
-                  error: {
-                    iconTheme: {
-                      primary: '#ef4444',
-                      secondary: '#ffffff',
+                    success: {
+                      iconTheme: {
+                        primary: '#10b981',
+                        secondary: '#ffffff',
+                      },
                     },
-                  },
-                  loading: {
-                    iconTheme: {
-                      primary: '#3b82f6',
-                      secondary: '#ffffff',
+                    error: {
+                      iconTheme: {
+                        primary: '#ef4444',
+                        secondary: '#ffffff',
+                      },
                     },
-                  },
-                }}
-              />
+                    loading: {
+                      iconTheme: {
+                        primary: '#3b82f6',
+                        secondary: '#ffffff',
+                      },
+                    },
+                  }}
+                />
+              </RentBillsProvider>
               </PersonalExpenseProvider>
             </HouseholdProvider>
           </AuthHandler>

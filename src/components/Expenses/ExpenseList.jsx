@@ -1,5 +1,5 @@
 // Component to display list of expenses grouped by date with bulk actions
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { 
@@ -34,6 +34,17 @@ const ExpenseList = ({ expenses, onExpenseClick }) => {
   const [expandedDates, setExpandedDates] = useState(new Set());
   const [selectedExpenses, setSelectedExpenses] = useState(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('ExpenseList Debug:', {
+      role,
+      isManager: role === 'manager',
+      membersCount: members.length,
+      currentUserId: currentUser?.uid,
+      householdId: household?.id
+    });
+  }, [role, members.length, currentUser, household]);
 
   // Create member lookup
   const memberLookup = useMemo(() => {
@@ -297,7 +308,8 @@ const ExpenseList = ({ expenses, onExpenseClick }) => {
                           key={expense.id}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="p-4 bg-accent/50 rounded-lg space-y-3"
+                          className="p-4 bg-accent/50 rounded-lg space-y-3 cursor-pointer hover:bg-accent transition-colors"
+                          onClick={() => onExpenseClick?.(expense)}
                         >
                           <div className="flex items-start gap-3">
                             {/* Selection Checkbox */}

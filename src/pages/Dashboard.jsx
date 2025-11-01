@@ -9,6 +9,7 @@ import BalanceChart from '../components/Dashboard/BalanceChart';
 import ExpenseChart from '../components/Dashboard/ExpenseChart';
 import BalanceSummary from '../components/Dashboard/BalanceSummary';
 import BalanceDetailsModal from '../components/Dashboard/BalanceDetailsModal';
+import RentBillSummary from '../components/Dashboard/RentBillSummary';
 import Modal from '../components/ui/Modal';
 import ExpenseForm from '../components/Expenses/ExpenseForm';
 import Button from '../components/ui/Button';
@@ -188,6 +189,9 @@ const Dashboard = () => {
 
         {/* Balance Summary */}
         <BalanceSummary balances={memberBalances} />
+
+        {/* Rent & Bills Summary */}
+        <RentBillSummary />
       </div>
 
       {/* Floating Add Expense Button */}

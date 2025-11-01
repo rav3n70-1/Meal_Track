@@ -10,7 +10,8 @@ import {
   FileText,
   UserCircle,
   DollarSign,
-  Wallet
+  Wallet,
+  Building2
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useHousehold } from '../../context/HouseholdContext';
@@ -48,6 +49,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { path: '/personal-expenses', label: 'Personal Expenses', icon: Wallet },
     { path: '/expenses', label: t('expenses'), icon: Receipt },
     { path: '/debts', label: 'Debts', icon: DollarSign },
+    { path: '/rent-bills', label: 'Rent & Bills', icon: Building2 },
     { path: '/members', label: t('members'), icon: Users },
     { path: '/reports', label: t('reports'), icon: TrendingUp },
     { path: '/activity', label: t('activity'), icon: FileText },

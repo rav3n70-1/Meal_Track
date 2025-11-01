@@ -19,6 +19,12 @@ service cloud.firestore {
              get(/databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid)).data.role == 'manager';
     }
     
+    // Helper function to check if user is a rent-only member
+    function isRentMember(householdId) {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/households/$(householdId)/rentBillMembers/$(request.auth.uid));
+    }
+    
     // User documents - each user can read all users but only write their own
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -109,6 +115,36 @@ service cloud.firestore {
         // Auto debts can be deleted by the system
         allow delete: if isManager(householdId) || 
                         (resource.data.type == 'auto' && isMember(householdId));
+      }
+      
+      // Rent-only Members subcollection
+      match /rentBillMembers/{memberId} {
+        // Managers and regular members can read (for viewing purposes)
+        allow read: if isManager(householdId) || isMember(householdId);
+        
+        // Only managers can create rent members
+        allow create: if isManager(householdId);
+        
+        // Only managers can update rent members
+        allow update: if isManager(householdId);
+        
+        // Only managers can delete rent members
+        allow delete: if isManager(householdId);
+      }
+      
+      // Rent and Bills subcollection
+      match /rentBills/{billId} {
+        // Managers and regular members can read all rent/bills
+        allow read: if isManager(householdId) || isMember(householdId);
+        
+        // Only managers can create rent/bills
+        allow create: if isManager(householdId);
+        
+        // Only managers can update rent/bills
+        allow update: if isManager(householdId);
+        
+        // Only managers can delete rent/bills
+        allow delete: if isManager(householdId);
       }
     }
     
