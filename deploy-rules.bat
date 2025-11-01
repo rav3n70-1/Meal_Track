@@ -1,50 +1,25 @@
 @echo off
-echo ============================================
-echo   Deploying Firestore Security Rules
-echo ============================================
+echo ========================================
+echo Deploying Firestore Security Rules
+echo ========================================
 echo.
-
-echo Checking Firebase CLI...
-call firebase --version
-if %errorlevel% neq 0 (
-    echo.
-    echo ERROR: Firebase CLI not found!
-    echo Please install it first: npm install -g firebase-tools
-    pause
-    exit /b 1
-)
-
+echo Project: meal-tracker-11262
 echo.
-echo Deploying Firestore rules...
+echo This will deploy the updated security rules that fix the invite code issue.
 echo.
-
-call firebase deploy --only firestore:rules
-
-if %errorlevel% equ 0 (
-    echo.
-    echo ============================================
-    echo   SUCCESS! Rules deployed successfully
-    echo ============================================
-    echo.
-    echo All new features are now available:
-    echo  - Recurring Expenses
-    echo  - Budget Management
-    echo  - Savings Goals
-    echo  - Inventory Management
-    echo  - Debt Payments
-    echo  - Expense Comments
-    echo.
-) else (
-    echo.
-    echo ============================================
-    echo   ERROR: Deployment failed
-    echo ============================================
-    echo.
-    echo Troubleshooting:
-    echo 1. Make sure you're logged in: firebase login
-    echo 2. Check if project is set: firebase use --add
-    echo 3. Verify you have permissions to this project
-    echo.
-)
-
 pause
+echo.
+echo Deploying...
+firebase deploy --only firestore:rules
+echo.
+echo ========================================
+echo Deployment Complete!
+echo ========================================
+echo.
+echo Next steps:
+echo 1. Test joining a household with an invite code
+echo 2. Verify no permission errors
+echo 3. Check Firebase Console for rule updates
+echo.
+pause
+

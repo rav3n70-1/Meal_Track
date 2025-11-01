@@ -25,12 +25,6 @@ import Reports from './pages/Reports';
 import Activity from './pages/Activity';
 import Settings from './pages/Settings';
 import PersonalExpenses from './pages/PersonalExpenses';
-import Budget from './pages/Budget';
-import RecurringExpenses from './pages/RecurringExpenses';
-import Savings from './pages/Savings';
-import Inventory from './pages/Inventory';
-import CalendarView from './pages/CalendarView';
-import Analytics from './pages/Analytics';
 
 // Loading Component
 const PageLoader = () => (
@@ -193,60 +187,6 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <PersonalExpenses />
-                      </ProtectedRoute>
-                    } 
-                  />
-
-                  <Route 
-                    path="/budget" 
-                    element={
-                      <ProtectedRoute>
-                        <Budget />
-                      </ProtectedRoute>
-                    } 
-                  />
-
-                  <Route 
-                    path="/recurring" 
-                    element={
-                      <ProtectedRoute>
-                        <RecurringExpenses />
-                      </ProtectedRoute>
-                    } 
-                  />
-
-                  <Route 
-                    path="/savings" 
-                    element={
-                      <ProtectedRoute>
-                        <Savings />
-                      </ProtectedRoute>
-                    } 
-                  />
-
-                  <Route 
-                    path="/inventory" 
-                    element={
-                      <ProtectedRoute>
-                        <Inventory />
-                      </ProtectedRoute>
-                    } 
-                  />
-
-                  <Route 
-                    path="/calendar" 
-                    element={
-                      <ProtectedRoute>
-                        <CalendarView />
-                      </ProtectedRoute>
-                    } 
-                  />
-
-                  <Route 
-                    path="/analytics" 
-                    element={
-                      <ProtectedRoute>
-                        <Analytics />
                       </ProtectedRoute>
                     } 
                   />
