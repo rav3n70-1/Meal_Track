@@ -12,12 +12,26 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
+    console.log('[LOGIN DEBUG] Sign-in button clicked');
+    console.log('[LOGIN DEBUG] Current URL:', window.location.href);
+    console.log('[LOGIN DEBUG] Current pathname:', window.location.pathname);
     setIsLoading(true);
     
     try {
+      console.log('[LOGIN DEBUG] Calling signInWithGoogle...');
       await signInWithGoogle();
+      console.log('[LOGIN DEBUG] Sign-in successful, showing toast');
       toast.success('Welcome! Setting up your account...');
+      console.log('[LOGIN DEBUG] Toast shown, URL should change soon');
+      console.log('[LOGIN DEBUG] Current URL after sign-in:', window.location.href);
     } catch (error) {
+      console.error('[LOGIN DEBUG] Sign-in error caught:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+        currentUrl: window.location.href
+      });
+      
       // User-friendly error messages
       if (error.message === 'Sign-in cancelled') {
         toast.error('Sign-in was cancelled');
