@@ -69,6 +69,14 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  server: {
+    proxy: {
+      '/__/auth': {
+        target: 'https://meal-tracker-11262.firebaseapp.com',
+        changeOrigin: true,
+      },
+    },
+  },
 })
 

@@ -17,8 +17,12 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase Authentication
+// Initialize Firebase Authentication and set persistence
 export const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence)
+  .catch((error) => {
+    console.error("Error setting auth persistence:", error);
+  });
 
 // Initialize Firestore
 export const db = getFirestore(app);
@@ -27,13 +31,6 @@ export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account',
-  display: 'popup'
 });
-
-// Set persistence to local (survives browser restarts)
-setPersistence(auth, browserLocalPersistence)
-  .catch(() => {
-    // Silently handle persistence errors
-  });
 
 export default app;
