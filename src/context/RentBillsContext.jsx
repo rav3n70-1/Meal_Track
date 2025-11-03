@@ -121,9 +121,54 @@ export const RentBillsProvider = ({ children }) => {
     if (role !== 'manager') throw new Error('Only managers can update rent/bills');
 
     try {
+      // Find current bill from state (fallback: allow partial updates)
+      const current = rentBills.find(b => b.id === billId) || {};
+
+      // Determine new total amount: prefer explicit, else recompute from memberCategoryAmounts/categories when provided
+      let newTotalAmount = typeof updates.totalAmount !== 'undefined' ? (parseFloat(updates.totalAmount) || 0) : (current.totalAmount || 0);
+      const effectiveMemberAmounts = updates.memberCategoryAmounts || current.memberCategoryAmounts || {};
+      const effectiveCategories = updates.categories || current.categories || [];
+      if (updates.memberCategoryAmounts && effectiveCategories.length > 0) {
+        // Recompute from new matrix
+        newTotalAmount = effectiveCategories.reduce((sumCat, cat) => {
+          const perMember = Object.values(effectiveMemberAmounts).reduce((sumMem, m) => sumMem + (parseFloat(m?.[cat]) || 0), 0);
+          return sumCat + perMember;
+        }, 0);
+      }
+
+      // Merge existing payments and clamp them against new dues per member/category
+      const existingPayments = current.memberCategoryPayments || {};
+      const mergedPayments = {};
+      Object.entries(effectiveMemberAmounts).forEach(([memberId, catMap]) => {
+        mergedPayments[memberId] = {};
+        effectiveCategories.forEach((cat) => {
+          const due = parseFloat(catMap?.[cat]) || 0;
+          const paid = parseFloat(existingPayments?.[memberId]?.[cat]) || 0;
+          // Clamp payment to new due
+          const clamped = Math.max(0, Math.min(paid, due));
+          if (clamped > 0) mergedPayments[memberId][cat] = clamped;
+        });
+      });
+
+      // Recalculate paid amount and status
+      const recalculatedPaidAmount = Object.values(mergedPayments).reduce((sumMem, catMap) => {
+        return sumMem + Object.values(catMap).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+      }, 0);
+
+      let newStatus = 'unpaid';
+      if (recalculatedPaidAmount >= newTotalAmount - 0.01 && newTotalAmount > 0) {
+        newStatus = 'paid';
+      } else if (recalculatedPaidAmount > 0) {
+        newStatus = 'partial';
+      }
+
       const billRef = doc(db, 'households', household.id, 'rentBills', billId);
       await updateDoc(billRef, {
         ...updates,
+        totalAmount: newTotalAmount,
+        memberCategoryPayments: mergedPayments,
+        paidAmount: recalculatedPaidAmount,
+        status: newStatus,
         updatedAt: serverTimestamp()
       });
     } catch (error) {
