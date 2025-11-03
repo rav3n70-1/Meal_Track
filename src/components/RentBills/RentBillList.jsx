@@ -256,22 +256,12 @@ const RentBillList = ({ filterMemberId = null }) => {
                                 <div key={idx} className="flex items-center justify-between text-sm">
                                   <span className="text-muted-foreground flex items-center gap-2">
                                     {member.memberName}
-                                    {isManager ? (
-                                      isPaid ? (
-                                        <span className="text-green-600 flex items-center gap-1"><CheckCircle size={14} /> Paid</span>
-                                      ) : isUnpaid ? (
-                                        <span className="text-red-600 flex items-center gap-1"><AlertCircle size={14} /> Unpaid</span>
-                                      ) : (
-                                        <span className="text-orange-600 flex items-center gap-1"><Clock size={14} /> Partial</span>
-                                      )
+                                    {isPaid ? (
+                                      <span className="text-green-600 flex items-center gap-1"><CheckCircle size={14} /> Paid</span>
+                                    ) : isUnpaid ? (
+                                      <span className="text-red-600 flex items-center gap-1"><AlertCircle size={14} /> Unpaid</span>
                                     ) : (
-                                      isPaid ? (
-                                        <span className="text-green-600 flex items-center gap-1"><CheckCircle size={14} /> Paid</span>
-                                      ) : isUnpaid ? (
-                                        <span className="text-red-600 flex items-center gap-1"><AlertCircle size={14} /> Unpaid</span>
-                                      ) : (
-                                        <span className="text-orange-600 flex items-center gap-1"><Clock size={14} /> Partial</span>
-                                      )
+                                      <span className="text-orange-600 flex items-center gap-1"><Clock size={14} /> Partial</span>
                                     )}
                                   </span>
                                   <span className="font-semibold flex items-center gap-2">
@@ -279,6 +269,26 @@ const RentBillList = ({ filterMemberId = null }) => {
                                       <span className="text-red-600 text-xs">(Paid: ৳{memberPaid.toFixed(2)})</span>
                                     )}
                                     ৳{memberTotal.toFixed(2)}
+                                    {isManager && (
+                                      <Button
+                                        type="button"
+                                        size="xs"
+                                        variant="outline"
+                                        onClick={() => {
+                                          const minimalMember = { name: member.memberName };
+                                          generateRentBillReceipt(
+                                            { ...bill, householdName: household?.name },
+                                            minimalMember,
+                                            memberAmounts,
+                                            memberPaidMap,
+                                            `statement-${(bill.description || 'bill').replace(/\s+/g, '-')}-${member.memberName.replace(/\s+/g, '-')}.pdf`
+                                          );
+                                        }}
+                                        icon={<Printer size={12} />}
+                                      >
+                                        PDF
+                                      </Button>
+                                    )}
                                   </span>
                                 </div>
                               );
