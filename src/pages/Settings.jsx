@@ -1,6 +1,6 @@
 // Settings page for household and user preferences
 import React from 'react';
-import { Settings as SettingsIcon, Home, Users, Bell, Info } from 'lucide-react';
+import { Settings as SettingsIcon, Home, Users, Bell, Info, Github, Globe, Linkedin, Facebook, Instagram, ExternalLink } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
@@ -117,33 +117,76 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* PWA Information */}
+        {/* Developer Info */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Info size={24} />
-              Progressive Web App
+              Developer Info
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              This app can be installed on your device for a native app experience.
-            </p>
-            <div className="p-4 bg-accent rounded-lg space-y-2 text-sm">
-              <p className="font-semibold">On Mobile:</p>
-              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>Tap the share button in your browser</li>
-                <li>Select "Add to Home Screen"</li>
-                <li>The app will appear on your home screen</li>
-              </ul>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-lg font-semibold">Hey, I'm Mehedi Hasan Rohan</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                I'm a CSE student at Daffodil International University. I built this project out of curiosity and
+                a genuine need—managing a student household is tough! Use this app to make your day-to-day easier.
+                It's currently focused on the essentials, so please don't try to break it. If you run into any issues
+                or have suggestions, feel free to reach out.
+              </p>
             </div>
-            <div className="p-4 bg-accent rounded-lg space-y-2 text-sm">
-              <p className="font-semibold">On Desktop:</p>
-              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>Look for the install icon in your browser's address bar</li>
-                <li>Click it to install the app</li>
-                <li>The app will open in its own window</li>
-              </ul>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="https://github.com/rav3n70-1"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-accent transition-colors"
+                title="GitHub"
+              >
+                <Github size={18} />
+                <span className="text-sm font-medium">GitHub</span>
+              </a>
+              <a
+                href="https://ravensportfolio.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-accent transition-colors"
+                title="Portfolio"
+              >
+                <Globe size={18} />
+                <span className="text-sm font-medium">Portfolio</span>
+              </a>
+              <a
+                href="https://www.linkedin.com/in/mehedi-hasan-rohan-62b5512aa/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-accent transition-colors"
+                title="LinkedIn"
+              >
+                <Linkedin size={18} />
+                <span className="text-sm font-medium">LinkedIn</span>
+              </a>
+              <a
+                href="https://www.facebook.com/rav3n69"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-accent transition-colors"
+                title="Facebook"
+              >
+                <Facebook size={18} />
+                <span className="text-sm font-medium">Facebook</span>
+              </a>
+              <a
+                href="https://www.instagram.com/ig_r4v39"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-accent transition-colors"
+                title="Instagram"
+              >
+                <Instagram size={18} />
+                <span className="text-sm font-medium">Instagram</span>
+              </a>
             </div>
           </CardContent>
         </Card>
