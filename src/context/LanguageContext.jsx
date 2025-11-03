@@ -11,7 +11,7 @@ export const useLanguage = () => {
   return context;
 };
 
-// Translation dictionary
+// Translation dictionary (English only)
 const translations = {
   en: {
     // Navigation
@@ -103,115 +103,17 @@ const translations = {
     addRentMember: 'Add Rent Member',
     rentOnlyMembers: 'Rent-Only Members',
     recentBills: 'Recent Bills'
-  },
-  bn: {
-    // Navigation
-    dashboard: 'ড্যাশবোর্ড',
-    expenses: 'খরচ',
-    members: 'সদস্য',
-    reports: 'রিপোর্ট',
-    activity: 'কার্যকলাপ',
-    settings: 'সেটিংস',
-    logout: 'লগআউট',
-    
-    // Common
-    add: 'যোগ করুন',
-    edit: 'সম্পাদনা',
-    delete: 'মুছুন',
-    save: 'সংরক্ষণ',
-    cancel: 'বাতিল',
-    submit: 'জমা দিন',
-    approve: 'অনুমোদন',
-    reject: 'প্রত্যাখ্যান',
-    loading: 'লোড হচ্ছে...',
-    back: 'পিছনে',
-    close: 'বন্ধ করুন',
-    
-    // Auth
-    signIn: 'গুগল দিয়ে সাইন ইন',
-    welcome: 'স্বাগতম!',
-    signOut: 'সাইন আউট',
-    
-    // Dashboard
-    welcomeBack: 'আবার স্বাগতম',
-    totalExpenses: 'মোট খরচ',
-    approved: 'অনুমোদিত',
-    pending: 'অপেক্ষমাণ',
-    myBalance: 'আপনার ব্যালেন্স',
-    youvePaid: 'আপনি পরিশোধ করেছেন',
-    yourShare: 'আপনার অংশ',
-    othersOweYou: 'অন্যরা আপনার কাছে পাওনা',
-    youOweOthers: 'আপনি অন্যদের কাছে পাওনা',
-    allSettled: 'সব হিসাব শেষ!',
-    
-    // Expenses
-    addExpense: 'খরচ যোগ করুন',
-    expenseDetails: 'খরচের বিবরণ',
-    itemName: 'আইটেমের নাম',
-    amount: 'পরিমাণ',
-    buyer: 'ক্রেতা',
-    date: 'তারিখ',
-    sharedAmong: 'শেয়ারকৃত',
-    notes: 'নোট',
-    status: 'অবস্থা',
-    paidBy: 'পরিশোধকারী',
-    
-    // Members
-    inviteCode: 'আমন্ত্রণ কোড',
-    householdMembers: 'পরিবারের সদস্য',
-    copyCode: 'কোড কপি',
-    copied: 'কপি হয়েছে!',
-    manager: 'ম্যানেজার',
-    member: 'সদস্য',
-    
-    // Currency
-    currency: '৳',
-    currencyName: 'টাকা',
-    
-    // Rent & Bills
-    rentBills: 'ভাড়া ও বিল',
-    rent: 'ভাড়া',
-    bills: 'বিল',
-    rentOnly: 'শুধুমাত্র ভাড়া',
-    addBill: 'বিল যোগ করুন',
-    editBill: 'বিল সম্পাদনা',
-    recordPayment: 'পেমেন্ট রেকর্ড করুন',
-    billType: 'বিলের ধরন',
-    electricity: 'বিদ্যুৎ',
-    water: 'পানি',
-    gas: 'গ্যাস',
-    internet: 'ইন্টারনেট',
-    other: 'অন্যান্য',
-    dueDate: 'পরিশোধের তারিখ',
-    paidAmount: 'পরিশোধিত পরিমাণ',
-    totalAmount: 'মোট পরিমাণ',
-    unpaid: 'অপরিশোধিত',
-    partial: 'আংশিক',
-    paid: 'পরিশোধিত',
-    overdue: 'বকেয়া',
-    description: 'বর্ণনা',
-    paymentNotes: 'পেমেন্ট নোট',
-    addRentMember: 'ভাড়া সদস্য যোগ করুন',
-    rentOnlyMembers: 'শুধুমাত্র ভাড়া সদস্য',
-    recentBills: 'সাম্প্রতিক বিল'
   }
 };
 
 export const LanguageProvider = ({ children }) => {
-  const [language, setLanguage] = useState(() => {
-    const stored = localStorage.getItem('language');
-    return stored || 'bn'; // Default to Bangla
-  });
+  const [language, setLanguage] = useState('en');
 
   useEffect(() => {
-    localStorage.setItem('language', language);
-    // Set document language attribute
-    document.documentElement.lang = language === 'bn' ? 'bn' : 'en';
+    document.documentElement.lang = 'en';
   }, [language]);
 
-  const toggleLanguage = () => {
-    setLanguage(prev => prev === 'en' ? 'bn' : 'en');
-  };
+  const toggleLanguage = () => setLanguage('en');
 
   const t = (key) => {
     return translations[language][key] || key;
@@ -222,7 +124,7 @@ export const LanguageProvider = ({ children }) => {
     toggleLanguage,
     t,
     isEnglish: language === 'en',
-    isBangla: language === 'bn'
+    isBangla: false
   };
 
   return (

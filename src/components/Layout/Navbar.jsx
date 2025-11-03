@@ -1,7 +1,7 @@
 // Navigation bar component
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Moon, Sun, LogOut, Languages } from 'lucide-react';
+import { Menu, X, Moon, Sun, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -12,7 +12,7 @@ const Navbar = ({ onMenuToggle }) => {
   const { currentUser, signOut } = useAuth();
   const { household } = useHousehold();
   const { theme, toggleTheme } = useTheme();
-  const { language, toggleLanguage, t } = useLanguage();
+  const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -53,9 +53,7 @@ const Navbar = ({ onMenuToggle }) => {
                 <span className="text-3xl">৳</span>
               </motion.div>
               <div>
-                <h1 className="text-lg font-bold">
-                  {language === 'bn' ? 'খাবার ট্র্যাকার' : 'Meal Tracker'}
-                </h1>
+                <h1 className="text-lg font-bold">Meal Tracker</h1>
                 {household && (
                   <p className="text-xs text-muted-foreground hidden sm:block">
                     {household.name}
@@ -67,18 +65,7 @@ const Navbar = ({ onMenuToggle }) => {
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-2">
-            {/* Language Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleLanguage}
-              icon={<Languages size={18} />}
-              className="hidden sm:flex"
-            >
-              <span className="hidden md:inline">
-                {language === 'bn' ? 'English' : 'বাংলা'}
-              </span>
-            </Button>
+            {/* Language Toggle removed */}
 
             {/* Theme Toggle */}
             <Button
@@ -88,9 +75,7 @@ const Navbar = ({ onMenuToggle }) => {
               icon={theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
               className="hidden sm:flex"
             >
-              <span className="hidden md:inline">
-                {theme === 'light' ? (language === 'bn' ? 'ডার্ক' : 'Dark') : (language === 'bn' ? 'লাইট' : 'Light')}
-              </span>
+              <span className="hidden md:inline">{theme === 'light' ? 'Dark' : 'Light'}</span>
             </Button>
 
             {/* User Menu */}
