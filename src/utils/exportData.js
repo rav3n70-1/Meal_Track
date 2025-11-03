@@ -3,7 +3,46 @@ import jsPDF from 'jspdf';
 // -----------------------------------------------------------------------------
 // Internal Helper Functions
 // -----------------------------------------------------------------------------
-// (Removed getExpenseTotalAmount and _processExpenseData as they were for Excel/CSV)
+
+/**
+ * Formats a date string or object into DD/MM/YYYY.
+ * @param {string | Date} d - The date to format.
+ * @returns {string} The formatted date or 'N/A'.
+ */
+const fmtDate = (d) => {
+  if (!d) return 'N/A';
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return 'N/A'; // Invalid date
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  } catch {
+    return 'N/A';
+  }
+};
+
+/**
+ * Draws a standardized footer on the PDF document.
+ * @param {jsPDF} doc - The jsPDF document instance.
+ * @param {number} margin - The page margin.
+ * @param {string} textLine1 - The first line of footer text.
+ * @param {string} [textLine2='Developed by: Mehedi Hasan Rohan'] - The second line of footer text.
+ */
+const _drawPdfFooter = (doc, margin, textLine1, textLine2 = 'Developed by: Mehedi Hasan Rohan') => {
+  const pageWidth = doc.internal.pageSize.width;
+  const footerY = doc.internal.pageSize.height - 30;
+  
+  doc.setDrawColor(16, 185, 129); // Green line
+  doc.line(margin, footerY, pageWidth - margin, footerY);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(120, 120, 120);
+  doc.text(textLine1, pageWidth / 2, footerY + 8, { align: 'center' });
+  doc.text(textLine2, pageWidth / 2, footerY + 14, { align: 'center' });
+};
+
 
 // -----------------------------------------------------------------------------
 // Exported Functions
@@ -32,6 +71,15 @@ export const generateRentBillReceipt = (
     const margin = 20;
     let yPos = margin;
 
+    // --- Colors ---
+    const colorGreen = [76, 175, 80];
+    const colorRed = [244, 67, 54];
+    const colorOrange = [255, 152, 0];
+    const colorGrey = [120, 120, 120];
+    const colorLightGrey = [230, 230, 230];
+    const colorBlack = [0, 0, 0];
+    const colorWhite = [255, 255, 255];
+
     // Calculate totals
     let totalDue = 0;
     let totalPaid = 0;
@@ -43,13 +91,13 @@ export const generateRentBillReceipt = (
 
     // Determine sticker status
     let stickerText = 'PAID';
-    let stickerColor = [76, 175, 80]; // Green
+    let stickerColor = colorGreen;
     if (totalPaid === 0 && totalDue > 0) {
       stickerText = 'UNPAID';
-      stickerColor = [244, 67, 54]; // Red
+      stickerColor = colorRed;
     } else if (totalPaid < totalDue) {
       stickerText = 'PARTIALLY PAID';
-      stickerColor = [255, 152, 0]; // Orange
+      stickerColor = colorOrange;
     }
 
     // --- Helper to add sticker ---
@@ -65,18 +113,18 @@ export const generateRentBillReceipt = (
       
       doc.setFontSize(7);
       doc.setFont(undefined, 'bold');
-      doc.setTextColor(255, 255, 255);
+      doc.setTextColor(...colorWhite);
       doc.text(stickerText, stickerX + stickerWidth / 2, stickerY + stickerHeight / 2 + 2, { align: 'center' });
-      doc.setTextColor(0, 0, 0); // Reset text color
+      doc.setTextColor(...colorBlack); // Reset text color
     };
 
     // --- Header ---
-    doc.setFillColor(76, 175, 80);
+    doc.setFillColor(...colorGreen);
     doc.rect(0, 0, pageWidth, 20, 'F');
     doc.setFontSize(14);
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(...colorWhite);
     doc.text('HOUSEHOLD MANAGEMENT SYSTEM', pageWidth / 2, 13, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...colorBlack);
     yPos = 35;
 
     addSticker();
@@ -142,9 +190,9 @@ export const generateRentBillReceipt = (
       doc.text(status, colStatus, yPos, { align: 'right' });
       yPos += 6;
 
-      doc.setDrawColor(230, 230, 230);
+      doc.setDrawColor(...colorLightGrey);
       doc.line(colCategory, yPos, colStatus, yPos);
-      doc.setDrawColor(0, 0, 0); // Reset draw color
+      doc.setDrawColor(...colorBlack); // Reset draw color
       yPos += 4;
     });
 
@@ -172,14 +220,7 @@ export const generateRentBillReceipt = (
     }
 
     // --- Footer ---
-    const footerY = doc.internal.pageSize.height - 30;
-    doc.setDrawColor(76, 175, 80);
-    doc.line(margin, footerY, pageWidth - margin, footerY);
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(120, 120, 120);
-    doc.text('Thank you for your payment!', pageWidth / 2, footerY + 8, { align: 'center' });
-    doc.text('Developed by: Mehedi Hasan Rohan', pageWidth / 2, footerY + 14, { align: 'center' });
+    _drawPdfFooter(doc, margin, 'Thank you for your payment!');
 
     const finalFilename =
       filename ||
@@ -204,7 +245,8 @@ export const generateBillSummaryPdf = (
   filename = null
 ) => {
   try {
-    const doc = new jsPDF();
+    // Use landscape orientation for wider tables
+    const doc = new jsPDF({ orientation: 'landscape' });
     const pageWidth = doc.internal.pageSize.width;
     const margin = 20;
     let y = margin;
@@ -213,39 +255,37 @@ export const generateBillSummaryPdf = (
     const tableLineHeight = 5; // Space inside header row
     const tableRowLineHeight = 6; // Space inside data row
 
-    // --- Lookups and Formatters ---
+    // --- Colors ---
+    const colorGreen = [16, 185, 129];
+    const colorDarkGreen = [5, 150, 105];
+    const colorRed = [220, 38, 38];
+    const colorOrange = [255, 152, 0];
+    const colorHeaderBg = [243, 244, 246];
+    const colorCardBg = [245, 245, 245];
+    const colorCardBorder = [220, 220, 220];
+    const colorHighlightBg = [236, 253, 245];
+    const colorBlack = [0, 0, 0];
+    const colorWhite = [255, 255, 255];
+
+    // --- Lookups ---
     const memberLookup = {};
     allMembers.forEach(m => { memberLookup[m.uid] = m.name || m.email || m.uid; });
 
-    const fmtDate = (d) => {
-      if (!d) return 'N/A';
-      try {
-        const dt = new Date(d);
-        if (isNaN(dt.getTime())) return 'N/A'; // Invalid date
-        const dd = String(dt.getDate()).padStart(2, '0');
-        const mm = String(dt.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-        const yyyy = dt.getFullYear();
-        return `${dd}/${mm}/${yyyy}`;
-      } catch {
-        return 'N/A';
-      }
-    };
-
     // --- Header ---
-    doc.setFillColor(16, 185, 129); // Green
+    doc.setFillColor(...colorGreen);
     doc.rect(0, 0, pageWidth, 18, 'F');
-    doc.setFillColor(5, 150, 105); // Darker Green
+    doc.setFillColor(...colorDarkGreen);
     doc.rect(0, 18, pageWidth, 2, 'F');
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(...colorWhite);
     doc.setFontSize(14);
     doc.setFont(undefined, 'bold');
     doc.text('Rent / Bills Summary', pageWidth / 2, 12, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...colorBlack);
     y = 26;
 
     // --- Info Card ---
-    doc.setDrawColor(220, 220, 220);
-    doc.setFillColor(245, 245, 245);
+    doc.setDrawColor(...colorCardBorder);
+    doc.setFillColor(...colorCardBg);
     doc.roundedRect(margin, y, pageWidth - margin * 2, 26, 3, 3, 'FD');
     doc.setFontSize(11);
     doc.setFont(undefined, 'normal');
@@ -258,6 +298,7 @@ export const generateBillSummaryPdf = (
     // --- Category Totals (Calculation) ---
     const categories = Array.isArray(bill.categories) ? bill.categories : [];
     const mca = bill.memberCategoryAmounts || {};
+    const mcp = bill.memberCategoryPayments || {}; // Member Category Payments
     const categoryTotals = {};
     categories.forEach(cat => { categoryTotals[cat] = 0; });
     
@@ -276,7 +317,7 @@ export const generateBillSummaryPdf = (
     const col1 = margin;
     const col2 = pageWidth - margin; // Right edge
     doc.setFontSize(10);
-    doc.setFillColor(243, 244, 246); // Header bg
+    doc.setFillColor(...colorHeaderBg);
     doc.rect(margin, y, pageWidth - margin * 2, headerRowHeight, 'F');
     doc.text('Category', col1 + 3, y + tableLineHeight);
     doc.text('Amount (৳)', col2 - 3, y + tableLineHeight, { align: 'right' });
@@ -296,15 +337,32 @@ export const generateBillSummaryPdf = (
 
     // --- Total Bill Highlight Card ---
     doc.setFont(undefined, 'bold');
-    doc.setFillColor(236, 253, 245); // Light green
-    doc.setDrawColor(16, 185, 129);  // Green
+    doc.setFillColor(...colorHighlightBg);
+    doc.setDrawColor(...colorGreen);
     doc.roundedRect(margin, y, pageWidth - margin * 2, 10, 2, 2, 'FD');
     doc.text('Total Bill', col1 + 3, y + 7);
     doc.text(totalBill.toFixed(2), col2 - 3, y + 7, { align: 'right' });
+    y += 14;
+
+    // --- Paid / Due / Status ---
+    // Calculate total paid from all members and categories
+    const totalPaid = typeof bill.paidAmount === 'number'
+      ? bill.paidAmount
+      : Object.values(mcp).reduce((sumMem, catMap) => sumMem + Object.values(catMap || {}).reduce((s, a) => s + (parseFloat(a) || 0), 0), 0);
+    const totalDue = Math.max(0, totalBill - totalPaid);
+    const billStatus = totalPaid >= totalBill && totalBill > 0 ? 'Full' : totalPaid > 0 ? 'Partial' : 'Due';
+
+    doc.setFontSize(10);
+    doc.setFillColor(...colorHeaderBg);
+    doc.rect(margin, y, pageWidth - margin * 2, 10, 'F');
+    doc.setFont(undefined, 'bold');
+    doc.text(`Paid: ৳${totalPaid.toFixed(2)}`, col1 + 3, y + 7);
+    doc.text(`Due: ৳${totalDue.toFixed(2)}`, (col1 + col2) / 2, y + 7, { align: 'center' });
+    doc.text(`Status: ${billStatus}`, col2 - 3, y + 7, { align: 'right' });
     y += 16;
 
 
-    // --- *** MODIFIED MEMBER BREAKDOWN *** ---
+    // --- *** MEMBER BREAKDOWN TABLE *** ---
     doc.setFont(undefined, 'bold');
     doc.text('Member Breakdown', margin, y);
     y += 6;
@@ -317,16 +375,15 @@ export const generateBillSummaryPdf = (
     const numCategories = categories.length;
     // Remaining width for categories
     const categoryColsWidth = tableWidth - memberColWidth - totalColWidth;
+    // Avoid division by zero if there are no categories
     const singleCategoryWidth = numCategories > 0 ? categoryColsWidth / numCategories : 0;
     
     // --- Draw Member Breakdown Header ---
-    doc.setFillColor(243, 244, 246); // Header bg
+    doc.setFillColor(...colorHeaderBg);
     doc.rect(margin, y, tableWidth, headerRowHeight, 'F');
     
-    // Member column
     doc.text('Member', margin + 3, y + tableLineHeight);
     
-    // Category columns
     let currentX = margin + memberColWidth;
     categories.forEach(cat => {
       doc.text(cat, currentX + (singleCategoryWidth / 2), y + tableLineHeight, { 
@@ -336,17 +393,18 @@ export const generateBillSummaryPdf = (
       currentX += singleCategoryWidth;
     });
     
-    // Total column
     doc.text('Total', currentX + (totalColWidth / 2), y + tableLineHeight, { align: 'center' });
     y += headerRowHeight + 2; // Move down past header
 
     // --- Draw Member Data Rows ---
     doc.setFont(undefined, 'normal');
     let zebra = 0;
+    // Get sorted list of member IDs to draw
     const memberIds = Object.keys(mca).sort((a, b) => (memberLookup[a] || a).localeCompare(memberLookup[b] || b));
     
     memberIds.forEach(memberId => {
-      if (y > doc.internal.pageSize.height - 20) {
+      // Handle page breaks
+      if (y > doc.internal.pageSize.height - 30) { // Extra space for footer
         doc.addPage();
         y = margin;
         zebra = 0;
@@ -356,70 +414,105 @@ export const generateBillSummaryPdf = (
       const memberName = memberLookup[memberId] || memberId;
       let memberTotal = 0;
       
-      const bg = zebra % 2 === 0 ? 255 : 250; // Zebra striping
+      // Draw row background
+      const bg = zebra % 2 === 0 ? 255 : 250;
       doc.setFillColor(bg, bg, bg);
       doc.rect(margin, y - tableRowLineHeight + 2, tableWidth, rowHeight, 'F');
       
       // Member name
       doc.text(memberName, margin + 3, y, { maxWidth: memberColWidth - 4 });
       
-      // Category amounts
+      // --- Draw Category Amounts with Payment Indicators (IMPROVED ALIGNMENT) ---
       currentX = margin + memberColWidth;
       categories.forEach(cat => {
         const amt = parseFloat(catMap?.[cat]) || 0;
+        const paid = parseFloat(mcp?.[memberId]?.[cat]) || 0;
         memberTotal += amt;
-        doc.text(amt.toFixed(2), currentX + singleCategoryWidth - 3, y, { align: 'right' });
+
+        // ---MODIFICATION---
+        // Get the CENTER of the column, same as the header
+        const amountX = currentX + (singleCategoryWidth / 2);
+        const amountStr = amt.toFixed(2);
+        
+        // Default color
+        doc.setTextColor(...colorBlack);
+        
+        let cellText = amountStr; // Default text is just the amount
+
+        if (amt > 0) {
+          if (paid >= amt) {
+            // --- PAID ---
+            doc.setTextColor(...colorGreen);
+            doc.setFont(undefined, 'bold'); // Make text bold
+            cellText = amountStr; // REMOVED tick mark
+            
+          } else if (paid > 0) {
+            // --- PARTIAL ---
+            doc.setTextColor(...colorOrange);
+            // Combine amount and partial payment into one string
+            cellText = `${amountStr} (${paid.toFixed(2)})`;
+
+          } else {
+            // --- UNPAID ---
+            doc.setTextColor(...colorRed);
+            // cellText is already amountStr
+          }
+        } else {
+          // --- ZERO AMOUNT ---
+          // cellText is already amountStr
+          // doc.setTextColor(150, 150, 150); // Optional: grey out zeros
+        }
+        
+        // ---MODIFICATION---
+        // Draw the single, combined string, CENTER-aligned
+        doc.text(cellText, amountX, y, { align: 'center', maxWidth: singleCategoryWidth - 4 });
+        
+        doc.setFont(undefined, 'normal'); // Reset font weight just in case
+        doc.setTextColor(...colorBlack); // Reset color for next cell
         currentX += singleCategoryWidth;
       });
+      // --- End of Category Loop ---
       
-      // Member total
-      doc.text(memberTotal.toFixed(2), currentX + totalColWidth - 3, y, { align: 'right' });
+      // Member total (this should be right-aligned in its column)
+      doc.setFont(undefined, 'bold');
+      const totalAmountX = currentX + totalColWidth - 3; // Right-aligned
+      doc.text(memberTotal.toFixed(2), totalAmountX, y, { align: 'right' });
+      doc.setFont(undefined, 'normal');
       
       y += rowHeight;
       zebra++;
     });
     
     // --- Draw Member Breakdown Footer (Totals) ---
-    if (y > doc.internal.pageSize.height - 20) {
+    if (y > doc.internal.pageSize.height - 30) { // Extra space for footer
       doc.addPage();
       y = margin;
     }
     
     doc.setFont(undefined, 'bold');
-    doc.setFillColor(243, 244, 246); // Footer bg (same as header)
+    doc.setFillColor(...colorHeaderBg);
     doc.rect(margin, y - tableRowLineHeight + 2, tableWidth, rowHeight, 'F');
     
-    // "Total" label
     doc.text('Total', margin + 3, y);
     
-    // Category totals
     currentX = margin + memberColWidth;
     categories.forEach(cat => {
       const total = categoryTotals[cat] || 0;
-      doc.text(total.toFixed(2), currentX + singleCategoryWidth - 3, y, { align: 'right' });
+      // ---MODIFICATION---
+      // Center-align the category totals
+      const totalX = currentX + (singleCategoryWidth / 2);
+      doc.text(total.toFixed(2), totalX, y, { align: 'center' });
       currentX += singleCategoryWidth;
     });
     
-    // Grand total
-    doc.text(totalBill.toFixed(2), currentX + totalColWidth - 3, y, { align: 'right' });
+    // Grand total (right-aligned)
+    const grandTotalX = currentX + totalColWidth - 3;
+    doc.text(totalBill.toFixed(2), grandTotalX, y, { align: 'right' });
     y += rowHeight;
 
-    // --- NEW FOOTER MESSAGE ---
-    // Check if there is space for the footer message
-    if (y > doc.internal.pageSize.height - 35) {
-      doc.addPage();
-      // y = margin; // y isn't used after this, but good practice
-    }
-
-    const footerY = doc.internal.pageSize.height - 30;
-    doc.setDrawColor(16, 185, 129); // Green line
-    doc.line(margin, footerY, pageWidth - margin, footerY);
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(120, 120, 120);
-    doc.text('This is a summary of all amounts due for this bill.', pageWidth / 2, footerY + 8, { align: 'center' });
-    doc.text('Developed by: Mehedi Hasan Rohan', pageWidth / 2, footerY + 14, { align: 'center' });
-    // --- END NEW FOOTER MESSAGE ---
+    // --- Page Footer ---
+    // This will draw the footer on the *current* page
+    _drawPdfFooter(doc, margin, 'This is a summary of all amounts due for this bill.');
 
     // --- Save ---
     const outName = filename || `bill-summary-${(bill.description || 'bill').replace(/\s+/g, '-')}-${Date.now()}.pdf`;
