@@ -1,4 +1,5 @@
 import React from 'react'
+import './utils/disableConsole'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './styles/index.css'
