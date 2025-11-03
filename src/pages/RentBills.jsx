@@ -9,6 +9,7 @@ import Modal from '../components/ui/Modal';
 import StatsCard from '../components/Dashboard/StatsCard';
 import RentBillForm from '../components/RentBills/RentBillForm';
 import RentBillList from '../components/RentBills/RentBillList';
+import RentBillCalendar from '../components/RentBills/RentBillCalendar';
 import RentBillMembers from '../components/RentBills/RentBillMembers';
 import Loading from '../components/ui/Loading';
 import { useRentBills } from '../context/RentBillsContext';
@@ -166,7 +167,14 @@ const RentBills = () => {
 
         {/* Content */}
         {activeTab === 'bills' ? (
-          <RentBillList />
+          <div className="space-y-6">
+            <RentBillList />
+            {isManager && (
+              <div>
+                <RentBillCalendar />
+              </div>
+            )}
+          </div>
         ) : (
           <RentBillMembers />
         )}

@@ -134,14 +134,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Handle redirect result (for mobile OAuth)
-  useEffect(() => {
-    // This effect is intentionally left blank.
-    // The redirect logic has been removed in favor of a consistent popup flow.
-    // We keep the initializing state logic to prevent race conditions on initial load.
-    setInitializing(false);
-  }, []);
-
   // Listen to authentication state changes
   useEffect(() => {
     console.log('[AUTH STATE DEBUG] Setting up auth state listener');

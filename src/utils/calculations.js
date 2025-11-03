@@ -1,6 +1,80 @@
 // Utility functions for expense calculations and balance summaries
 import { getDisplayName } from './displayName';
 
+// Helper: get total amount of an expense regardless of schema
+export const getExpenseTotalAmount = (expense) => {
+  // Prefer explicit totalAmount
+  if (expense && typeof expense.totalAmount !== 'undefined') {
+    const amt = parseFloat(expense.totalAmount);
+    return isNaN(amt) ? 0 : amt;
+  }
+  // Legacy single amount field
+  if (expense && typeof expense.amount !== 'undefined') {
+    const amt = parseFloat(expense.amount);
+    return isNaN(amt) ? 0 : amt;
+  }
+  // Derive from items if present
+  if (expense && Array.isArray(expense.items)) {
+    return expense.items.reduce((sum, item) => sum + (parseFloat(item?.amount) || 0), 0);
+  }
+  return 0;
+};
+
+// Helper: map of buyerUid -> total paid for a given expense (supports items per buyer)
+const getBuyerPaymentsForExpense = (expense) => {
+  const payments = {};
+  if (Array.isArray(expense?.items) && expense.items.length > 0) {
+    expense.items.forEach((item) => {
+      const buyerId = item?.buyer;
+      const amt = parseFloat(item?.amount) || 0;
+      if (!buyerId || !amt) return;
+      payments[buyerId] = (payments[buyerId] || 0) + amt;
+    });
+  } else if (expense?.buyer) {
+    const amt = getExpenseTotalAmount(expense);
+    if (amt > 0) payments[expense.buyer] = (payments[expense.buyer] || 0) + amt;
+  }
+  return payments;
+};
+
+// NEW: Compute contributions per member including debt repayments shifting shares
+export const getContributionsByMember = (expenses, members, debts = []) => {
+  const memberIdToName = Object.fromEntries(members.map(m => [m.uid, getDisplayName(m)]));
+  const contributions = {};
+  Object.keys(memberIdToName).forEach(uid => { contributions[uid] = 0; });
+
+  // Base: sum purchases by buyer from expenses (non-rejected recommended before passing)
+  expenses.forEach(expense => {
+    const buyerMap = getBuyerPaymentsForExpense(expense);
+    Object.entries(buyerMap).forEach(([buyerId, amount]) => {
+      contributions[buyerId] = (contributions[buyerId] || 0) + (parseFloat(amount) || 0);
+    });
+  });
+
+  // Adjust with debt payments: move contribution from creditor to debtor as payments occur
+  // Consider debts with payments array; include payments regardless of debt status except rejected
+  const relevantDebts = Array.isArray(debts) ? debts.filter(d => d.status !== 'rejected') : [];
+  relevantDebts.forEach(debt => {
+    const creditor = debt.creditor;
+    const payments = Array.isArray(debt.payments) ? debt.payments : [];
+    payments.forEach(payment => {
+      const paidBy = payment?.paidBy;
+      const amount = parseFloat(payment?.amount) || 0;
+      if (!paidBy || !amount) return;
+      contributions[paidBy] = (contributions[paidBy] || 0) + amount;
+      contributions[creditor] = (contributions[creditor] || 0) - amount;
+    });
+  });
+
+  // Build output structure expected by charts: map uid -> { name, totalPaid }
+  const result = {};
+  Object.entries(memberIdToName).forEach(([uid, name]) => {
+    const value = Math.max(0, Math.round((contributions[uid] || 0) * 100) / 100);
+    result[uid] = { name, totalPaid: value };
+  });
+  return result;
+};
+
 /**
  * Calculate balance summary for all household members
  * @param {Array} expenses - Array of approved expenses
@@ -35,14 +109,17 @@ export const calculateBalances = (expenses, members, debts = []) => {
   let grandTotal = 0;
 
   approvedExpenses.forEach(expense => {
-    const amount = parseFloat(expense.amount) || 0;
+    const amount = getExpenseTotalAmount(expense);
     grandTotal += amount;
 
-    // Add to buyer's total paid
-    if (memberBalances[expense.buyer]) {
-      memberBalances[expense.buyer].totalPaid += amount;
-      memberBalances[expense.buyer].expenseCount += 1;
-    }
+    // Add to buyer(s) total paid
+    const buyerPayments = getBuyerPaymentsForExpense(expense);
+    Object.entries(buyerPayments).forEach(([buyerId, buyerAmount]) => {
+      if (memberBalances[buyerId]) {
+        memberBalances[buyerId].totalPaid += buyerAmount;
+        memberBalances[buyerId].expenseCount += 1;
+      }
+    });
 
     // Calculate share per person
     const sharedAmong = expense.sharedAmong || [];
@@ -183,7 +260,7 @@ export const getExpenseStats = (expenses) => {
   const pendingExpenses = expenses.filter(exp => exp.status === 'pending');
   const rejectedExpenses = expenses.filter(exp => exp.status === 'rejected');
 
-  const total = approvedExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount || 0), 0);
+  const total = approvedExpenses.reduce((sum, exp) => sum + getExpenseTotalAmount(exp), 0);
   const average = approvedExpenses.length > 0 ? total / approvedExpenses.length : 0;
 
   return {
@@ -202,10 +279,10 @@ export const getExpenseStats = (expenses) => {
  * @returns {Array} Grouped expenses data
  */
 export const groupExpensesByDate = (expenses, groupBy = 'day') => {
-  const approvedExpenses = expenses.filter(exp => exp.status === 'approved');
+  const approvedOrPending = expenses.filter(exp => exp.status !== 'rejected');
   const grouped = {};
 
-  approvedExpenses.forEach(expense => {
+  approvedOrPending.forEach(expense => {
     const date = new Date(expense.date);
     let key;
 
@@ -226,7 +303,7 @@ export const groupExpensesByDate = (expenses, groupBy = 'day') => {
     if (!grouped[key]) {
       grouped[key] = 0;
     }
-    grouped[key] += parseFloat(expense.amount || 0);
+    grouped[key] += getExpenseTotalAmount(expense);
   });
 
   return Object.entries(grouped).map(([name, amount]) => ({

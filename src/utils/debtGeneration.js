@@ -18,27 +18,58 @@ export const calculateAutomaticDebts = (expenses, members) => {
   const debtMap = {};
   
   approvedExpenses.forEach(expense => {
-    const amount = parseFloat(expense.amount) || 0;
-    const buyer = expense.buyer;
     const sharedAmong = expense.sharedAmong || [];
     
     if (sharedAmong.length === 0) return;
     
-    const sharePerPerson = amount / sharedAmong.length;
-    
-    // Each person in sharedAmong owes the buyer their share
-    sharedAmong.forEach(memberId => {
-      // Skip if the buyer is also sharing (they don't owe themselves)
-      if (memberId === buyer) return;
+    // Support both old format (single item) and new format (multiple items)
+    if (expense.items && Array.isArray(expense.items) && expense.items.length > 0) {
+      // New format: Multiple items, each with its own buyer and amount
+      expense.items.forEach(item => {
+        const itemAmount = parseFloat(item.amount) || 0;
+        const buyer = item.buyer;
+        
+        if (itemAmount <= 0 || !buyer) return;
+        
+        const sharePerPerson = itemAmount / sharedAmong.length;
+        
+        // Each person in sharedAmong owes the buyer their share of this item
+        sharedAmong.forEach(memberId => {
+          // Skip if the buyer is also sharing (they don't owe themselves)
+          if (memberId === buyer) return;
+          
+          const debtKey = `${memberId}:${buyer}`;
+          
+          if (!debtMap[debtKey]) {
+            debtMap[debtKey] = 0;
+          }
+          
+          debtMap[debtKey] += sharePerPerson;
+        });
+      });
+    } else {
+      // Old format: Single item with expense.amount and expense.buyer
+      const amount = parseFloat(expense.amount) || 0;
+      const buyer = expense.buyer;
       
-      const debtKey = `${memberId}:${buyer}`;
+      if (amount <= 0 || !buyer) return;
       
-      if (!debtMap[debtKey]) {
-        debtMap[debtKey] = 0;
-      }
+      const sharePerPerson = amount / sharedAmong.length;
       
-      debtMap[debtKey] += sharePerPerson;
-    });
+      // Each person in sharedAmong owes the buyer their share
+      sharedAmong.forEach(memberId => {
+        // Skip if the buyer is also sharing (they don't owe themselves)
+        if (memberId === buyer) return;
+        
+        const debtKey = `${memberId}:${buyer}`;
+        
+        if (!debtMap[debtKey]) {
+          debtMap[debtKey] = 0;
+        }
+        
+        debtMap[debtKey] += sharePerPerson;
+      });
+    }
   });
   
   // Convert debt map to array of debt objects

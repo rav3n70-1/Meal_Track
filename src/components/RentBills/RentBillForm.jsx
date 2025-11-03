@@ -144,17 +144,13 @@ const RentBillForm = ({ bill = null, onSuccess, onCancel }) => {
       return;
     }
 
-    // Check if bill total matches calculated total
-    if (formData.totalAmount && Math.abs(parseFloat(formData.totalAmount) - billTotal) > 0.01) {
-      toast.error('Total bill amount must match the sum of all category totals');
-      return;
-    }
+    // Allow managers to set total amount independently; we won't block mismatch
 
     setLoading(true);
 
     try {
       const billData = {
-        totalAmount: billTotal,
+        totalAmount: formData.totalAmount ? parseFloat(formData.totalAmount) : billTotal,
         dueDate: formData.dueDate,
         description: formData.description,
         notes: formData.notes,

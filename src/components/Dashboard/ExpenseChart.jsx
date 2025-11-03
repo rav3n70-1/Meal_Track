@@ -26,9 +26,7 @@ const ExpenseChart = ({ expenses }) => {
       return (
         <div className="bg-card border border-border rounded-lg shadow-lg p-3">
           <p className="font-semibold">{payload[0].payload.name}</p>
-          <p className="text-sm text-primary">
-            ${payload[0].value.toFixed(2)}
-          </p>
+          <p className="text-sm text-primary">৳{payload[0].value.toFixed(2)}</p>
         </div>
       );
     }

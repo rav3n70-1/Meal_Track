@@ -325,7 +325,7 @@ export const HouseholdProvider = ({ children }) => {
 
   // Auto-generate debts from expenses whenever expenses or members change
   useEffect(() => {
-    if (!household || !members.length || !expenses.length) return;
+    if (!household || !members.length) return;
 
     const generateDebts = async () => {
       try {
@@ -341,6 +341,18 @@ export const HouseholdProvider = ({ children }) => {
     return () => clearTimeout(timeoutId);
   }, [expenses, members, household, debts]);
 
+  // Manual function to recalculate debts (can be called explicitly after expense deletion)
+  const recalculateDebts = async () => {
+    if (!household || !members.length) return;
+    
+    try {
+      await updateAutomaticDebts(household.id, expenses, members, debts);
+    } catch (error) {
+      console.error('Error recalculating debts:', error);
+      throw error;
+    }
+  };
+
   const value = {
     household,
     members,
@@ -351,7 +363,8 @@ export const HouseholdProvider = ({ children }) => {
     joinHousehold,
     getUserRole,
     updateMember,
-    removeMember
+    removeMember,
+    recalculateDebts
   };
 
   return (

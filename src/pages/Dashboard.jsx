@@ -16,7 +16,7 @@ import Button from '../components/ui/Button';
 import { useHousehold } from '../context/HouseholdContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { calculateBalances, getExpenseStats } from '../utils/calculations';
+import { calculateBalances, getExpenseStats, getExpenseTotalAmount, getContributionsByMember } from '../utils/calculations';
 import Loading from '../components/ui/Loading';
 
 // Custom Taka Icon Component
@@ -37,10 +37,25 @@ const Dashboard = () => {
     return getExpenseStats(expenses);
   }, [expenses]);
 
+  // Non-rejected expenses (approved + pending) for display/charts
+  const nonRejectedExpenses = useMemo(() => {
+    return expenses.filter(exp => exp.status !== 'rejected');
+  }, [expenses]);
+
+  // Display total should reflect non-rejected expenses so users see immediate changes
+  const displayTotal = useMemo(() => {
+    return nonRejectedExpenses.reduce((sum, exp) => sum + getExpenseTotalAmount(exp), 0);
+  }, [nonRejectedExpenses]);
+
   // Calculate balances (including debts)
   const { grandTotal, memberBalances } = useMemo(() => {
     return calculateBalances(expenses, members, debts);
   }, [expenses, members, debts]);
+
+  // Member contributions chart should reflect current (non-rejected) expenses and debt repayments
+  const contributionsForChart = useMemo(() => {
+    return getContributionsByMember(nonRejectedExpenses, members, debts);
+  }, [nonRejectedExpenses, members, debts]);
 
   // Get current user's balance
   const myBalance = useMemo(() => {
@@ -75,7 +90,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             title={t('totalExpenses')}
-            value={`৳${grandTotal.toFixed(2)}`}
+            value={`৳${displayTotal.toFixed(2)}`}
             icon={TakaIcon}
             color="primary"
           />
@@ -183,8 +198,8 @@ const Dashboard = () => {
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <BalanceChart balances={memberBalances} />
-          <ExpenseChart expenses={expenses} />
+          <BalanceChart balances={contributionsForChart} />
+          <ExpenseChart expenses={nonRejectedExpenses} />
         </div>
 
         {/* Balance Summary */}
@@ -224,12 +239,11 @@ const Dashboard = () => {
       <BalanceDetailsModal
         isOpen={showBalanceDetails}
         onClose={() => setShowBalanceDetails(false)}
-        balance={myBalance}
-        userName={currentUser?.displayName}
+        balances={memberBalances}
       />
     </Layout>
   );
-};
+}
 
 export default Dashboard;
 

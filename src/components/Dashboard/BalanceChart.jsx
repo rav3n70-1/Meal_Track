@@ -33,16 +33,13 @@ const BalanceChart = ({ balances }) => {
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
-      const data = payload[0];
+      const item = payload[0];
+      const percent = (item.percent || 0) * 100;
       return (
         <div className="bg-card border border-border rounded-lg shadow-lg p-3">
-          <p className="font-semibold">{data.name}</p>
-          <p className="text-sm text-muted-foreground">
-            ${data.value.toFixed(2)}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {((data.value / data.payload.percent) * 100).toFixed(1)}% of total
-          </p>
+          <p className="font-semibold">{item.name}</p>
+          <p className="text-sm text-muted-foreground">৳{(item.value || 0).toFixed(2)}</p>
+          <p className="text-xs text-muted-foreground">{percent.toFixed(1)}% of total</p>
         </div>
       );
     }

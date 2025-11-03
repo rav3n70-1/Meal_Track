@@ -24,7 +24,7 @@ import toast from 'react-hot-toast';
 
 const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
   const { currentUser } = useAuth();
-  const { household, members, getUserRole } = useHousehold();
+  const { household, members, getUserRole, expenses, debts, recalculateDebts } = useHousehold();
   const [loading, setLoading] = useState(false);
   const role = getUserRole();
 
@@ -103,16 +103,42 @@ const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
       return;
     }
 
-    if (!window.confirm('Are you sure you want to delete this expense? This action cannot be undone.')) {
+    if (!window.confirm('Are you sure you want to delete this expense? This will automatically adjust related debts.')) {
       return;
     }
 
     setLoading(true);
     try {
       const expenseRef = doc(db, 'households', household.id, 'expenses', expense.id);
+      
+      // Check if expense was approved (only approved expenses generate debts)
+      const wasApproved = expense.status === 'approved';
+      
+      // Calculate remaining expenses before deletion (excluding the one being deleted)
+      const remainingExpenses = expenses.filter(exp => exp.id !== expense.id);
+      
+      // Delete the expense
       await deleteDoc(expenseRef);
 
-      toast.success('Expense deleted successfully');
+      // If the expense was approved, immediately recalculate debts to remove/adjust related auto debts
+      if (wasApproved && members.length > 0 && remainingExpenses.length >= 0) {
+        try {
+          // Import debt generation utility
+          const { updateAutomaticDebts } = await import('../../utils/debtGeneration');
+          
+          // Recalculate debts with remaining expenses (this will remove debts related to deleted expense)
+          await updateAutomaticDebts(household.id, remainingExpenses, members, debts);
+          
+          toast.success('Expense deleted and debts adjusted successfully');
+        } catch (debtError) {
+          console.error('Error adjusting debts:', debtError);
+          // Expense is deleted, but debt adjustment failed - the useEffect will handle it
+          toast.success('Expense deleted successfully. Debts will be adjusted automatically.');
+        }
+      } else {
+        toast.success('Expense deleted successfully');
+      }
+      
       onClose();
     } catch (error) {
       toast.error(error.message || 'Failed to delete expense');

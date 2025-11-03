@@ -239,17 +239,50 @@ const RentBillList = ({ filterMemberId = null }) => {
                         {bill.status && getStatusBadge(bill.status)}
                       </div>
 
-                      {/* Member Breakdown - Show all to managers, only current member to others */}
+                      {/* Member Breakdown with per-member status */}
                       {bill.memberBreakdown && bill.memberBreakdown.length > 0 && (
                         <div className="space-y-1">
                           {bill.memberBreakdown
                             .filter(member => isManager || member.memberId === currentUser?.uid)
-                            .map((member, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">{member.memberName}:</span>
-                                <span className="font-semibold">৳{member.amount.toFixed(2)}</span>
-                              </div>
-                            ))}
+                            .map((member, idx) => {
+                              const memberAmounts = bill.memberCategoryAmounts?.[member.memberId] || {};
+                              const memberPaidMap = bill.memberCategoryPayments?.[member.memberId] || {};
+                              const memberTotal = Object.values(memberAmounts).reduce((s, a) => s + (parseFloat(a) || 0), 0);
+                              const memberPaid = Object.values(memberPaidMap).reduce((s, a) => s + (parseFloat(a) || 0), 0);
+                              const isPaid = memberPaid >= memberTotal && memberTotal > 0;
+                              const isUnpaid = memberPaid <= 0 && memberTotal > 0;
+                              const isPartial = !isPaid && !isUnpaid && memberTotal > 0;
+                              return (
+                                <div key={idx} className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground flex items-center gap-2">
+                                    {member.memberName}
+                                    {isManager ? (
+                                      isPaid ? (
+                                        <span className="text-green-600 flex items-center gap-1"><CheckCircle size={14} /> Paid</span>
+                                      ) : isUnpaid ? (
+                                        <span className="text-red-600 flex items-center gap-1"><AlertCircle size={14} /> Unpaid</span>
+                                      ) : (
+                                        <span className="text-orange-600 flex items-center gap-1"><Clock size={14} /> Partial</span>
+                                      )
+                                    ) : (
+                                      isPaid ? (
+                                        <span className="text-green-600 flex items-center gap-1"><CheckCircle size={14} /> Paid</span>
+                                      ) : isUnpaid ? (
+                                        <span className="text-red-600 flex items-center gap-1"><AlertCircle size={14} /> Unpaid</span>
+                                      ) : (
+                                        <span className="text-orange-600 flex items-center gap-1"><Clock size={14} /> Partial</span>
+                                      )
+                                    )}
+                                  </span>
+                                  <span className="font-semibold flex items-center gap-2">
+                                    {isPartial && (
+                                      <span className="text-red-600 text-xs">(Paid: ৳{memberPaid.toFixed(2)})</span>
+                                    )}
+                                    ৳{memberTotal.toFixed(2)}
+                                  </span>
+                                </div>
+                              );
+                            })}
                         </div>
                       )}
 
