@@ -12,7 +12,7 @@ import { useRentBills } from '../../context/RentBillsContext';
 import { useHousehold } from '../../context/HouseholdContext';
 import { useAuth } from '../../context/AuthContext';
 import { getDisplayName } from '../../utils/displayName';
-import { generateRentBillReceipt } from '../../utils/exportData';
+import { generateRentBillReceipt, generateBillSummaryPdf } from '../../utils/exportData';
 import toast from 'react-hot-toast';
 
 const RentBillList = ({ filterMemberId = null }) => {
@@ -399,6 +399,14 @@ const RentBillList = ({ filterMemberId = null }) => {
                             Record Payment
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => generateBillSummaryPdf(bill, allMembers, household?.name)}
+                          icon={<Printer size={16} />}
+                        >
+                          PDF
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"

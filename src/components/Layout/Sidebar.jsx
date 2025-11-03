@@ -51,7 +51,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { path: '/debts', label: 'Debts', icon: DollarSign },
     { path: '/rent-bills', label: 'Rent & Bills', icon: Building2 },
     { path: '/members', label: t('members'), icon: Users },
-    { path: '/reports', label: t('reports'), icon: TrendingUp },
+    ...(role === 'manager' ? [{ path: '/reports', label: t('reports'), icon: TrendingUp }] : []),
     { path: '/activity', label: t('activity'), icon: FileText },
     { path: '/settings', label: t('settings'), icon: Settings },
   ];

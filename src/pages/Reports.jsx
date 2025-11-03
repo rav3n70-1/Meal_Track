@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Download, TrendingUp, Calendar } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
+import { Navigate } from 'react-router-dom';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
@@ -11,13 +12,13 @@ import { useHousehold } from '../context/HouseholdContext';
 import { useRentBills } from '../context/RentBillsContext';
 import { calculateBalances, filterExpensesByDate, getExpenseStats, getContributionsByMember } from '../utils/calculations';
 import { getDisplayName } from '../utils/displayName';
-import { exportToExcel, exportToCSV, exportBalancesToExcel } from '../utils/exportData';
+// Exports removed per requirement
 import { calculateDebts } from '../utils/calculations';
 import Loading from '../components/ui/Loading';
 import toast from 'react-hot-toast';
 
 const Reports = () => {
-  const { expenses, members, debts, loading } = useHousehold();
+  const { expenses, members, debts, loading, getUserRole } = useHousehold();
   const { rentBills } = useRentBills();
   const [dateRange, setDateRange] = useState('all');
 
@@ -86,27 +87,7 @@ const Reports = () => {
     return { totalAmount, paidAmount, unpaidAmount, perMember };
   }, [rentBills, members]);
 
-  const handleExportExpenses = (format) => {
-    try {
-      if (format === 'excel') {
-        exportToExcel(filteredExpenses, members);
-      } else {
-        exportToCSV(filteredExpenses, members);
-      }
-      toast.success(`Expenses exported as ${format.toUpperCase()}`);
-    } catch (error) {
-      toast.error('Failed to export expenses');
-    }
-  };
-
-  const handleExportBalances = () => {
-    try {
-      exportBalancesToExcel(memberBalances, settlementDebts);
-      toast.success('Balances exported successfully');
-    } catch (error) {
-      toast.error('Failed to export balances');
-    }
-  };
+  // Export actions removed
 
   if (loading) {
     return (
@@ -116,6 +97,11 @@ const Reports = () => {
         </div>
       </Layout>
     );
+  }
+
+  const role = getUserRole();
+  if (role !== 'manager') {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (
@@ -129,22 +115,7 @@ const Reports = () => {
               Detailed analytics and expense reports
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              icon={<Download size={18} />}
-              onClick={() => handleExportExpenses('excel')}
-            >
-              Export Excel
-            </Button>
-            <Button
-              variant="outline"
-              icon={<Download size={18} />}
-              onClick={() => handleExportExpenses('csv')}
-            >
-              Export CSV
-            </Button>
-          </div>
+        {/* Export buttons removed */}
         </div>
 
         {/* Date Range Filter */}
@@ -326,14 +297,6 @@ const Reports = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Member Breakdown</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<Download size={16} />}
-                onClick={handleExportBalances}
-              >
-                Export
-              </Button>
             </div>
           </CardHeader>
           <CardContent>
