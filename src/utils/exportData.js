@@ -320,7 +320,7 @@ export const generateBillSummaryPdf = (
     doc.setFillColor(...colorHeaderBg);
     doc.rect(margin, y, pageWidth - margin * 2, headerRowHeight, 'F');
     doc.text('Category', col1 + 3, y + tableLineHeight);
-    doc.text('Amount (৳)', col2 - 3, y + tableLineHeight, { align: 'right' });
+    doc.text('Amount', col2 - 3, y + tableLineHeight, { align: 'right' });
     y += headerRowHeight + 2;
     doc.setFont(undefined, 'normal');
 
@@ -356,8 +356,8 @@ export const generateBillSummaryPdf = (
     doc.setFillColor(...colorHeaderBg);
     doc.rect(margin, y, pageWidth - margin * 2, 10, 'F');
     doc.setFont(undefined, 'bold');
-    doc.text(`Paid: ৳${totalPaid.toFixed(2)}`, col1 + 3, y + 7);
-    doc.text(`Due: ৳${totalDue.toFixed(2)}`, (col1 + col2) / 2, y + 7, { align: 'center' });
+    doc.text(`Paid: ${totalPaid.toFixed(2)}`, col1 + 3, y + 7);
+    doc.text(`Due: ${totalDue.toFixed(2)}`, (col1 + col2) / 2, y + 7, { align: 'center' });
     doc.text(`Status: ${billStatus}`, col2 - 3, y + 7, { align: 'right' });
     y += 16;
 
