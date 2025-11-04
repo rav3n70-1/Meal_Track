@@ -107,13 +107,11 @@ const translations = {
 };
 
 export const LanguageProvider = ({ children }) => {
-  const [language, setLanguage] = useState('en');
+  const [language] = useState('en');
 
   useEffect(() => {
     document.documentElement.lang = 'en';
-  }, [language]);
-
-  const toggleLanguage = () => setLanguage('en');
+  }, []);
 
   const t = (key) => {
     return translations[language][key] || key;
@@ -121,9 +119,8 @@ export const LanguageProvider = ({ children }) => {
 
   const value = {
     language,
-    toggleLanguage,
     t,
-    isEnglish: language === 'en',
+    isEnglish: true,
     isBangla: false
   };
 

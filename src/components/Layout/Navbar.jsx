@@ -1,7 +1,7 @@
 // Navigation bar component
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Moon, Sun, LogOut, Languages } from 'lucide-react';
+import { Menu, X, Moon, Sun, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -12,7 +12,7 @@ const Navbar = ({ onMenuToggle }) => {
   const { currentUser, signOut } = useAuth();
   const { household } = useHousehold();
   const { theme, toggleTheme } = useTheme();
-  const { t, language, toggleLanguage } = useLanguage();
+  const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -126,20 +126,11 @@ const Navbar = ({ onMenuToggle }) => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={toggleLanguage}
-                icon={<Languages size={18} />}
-                className="w-full justify-start"
-              >
-                {language === 'bn' ? 'English' : 'বাংলা'}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
                 onClick={toggleTheme}
                 icon={theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
                 className="w-full justify-start"
               >
-                {theme === 'light' ? (language === 'bn' ? 'ডার্ক মোড' : 'Dark Mode') : (language === 'bn' ? 'লাইট মোড' : 'Light Mode')}
+                {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
               </Button>
             </div>
           </motion.div>
