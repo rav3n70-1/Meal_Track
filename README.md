@@ -151,7 +151,29 @@ src/
 
 ## Screenshots
 
-You can add screenshots or GIFs of key flows (Dashboard, Add Expense, Balances) here to help users quickly understand the app.
+### Login
+![Login](https://i.ibb.co.com/YFVZpVQr/Login.png)
+
+### Login (Alternate)
+![Login 2](https://i.ibb.co.com/dwLcZ1fQ/Login2.png)
+
+### Dashboard
+![Dashboard](https://i.ibb.co.com/rKjWk2MT/Dashboard-2.png)
+
+### Profile
+![Profile](https://i.ibb.co.com/j90DfJzH/Profile.png)
+
+### Personal Overview
+![Personal](https://i.ibb.co.com/v66pcynm/Personal.png)
+
+### Expenses
+![Expenses](https://i.ibb.co.com/KcmGTLGZ/Expenses.png)
+
+### Debts
+![Debts](https://i.ibb.co.com/qLJ6nwmn/Debts.png)
+
+### Rent
+![Rent](https://i.ibb.co.com/DPtLmZzn/Rent.png)
 
 ## Database Structure
 
