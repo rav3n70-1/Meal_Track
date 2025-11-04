@@ -2,6 +2,8 @@
 
 A modern, responsive Progressive Web App (PWA) for managing shared household meal expenses built with React, Vite, Tailwind CSS, Firebase, and Framer Motion.
 
+Version: v1.0.0
+
 ## Features
 
 - 🔐 **Google Authentication** - Secure login with Firebase Auth
@@ -16,6 +18,17 @@ A modern, responsive Progressive Web App (PWA) for managing shared household mea
 - 🎨 **Modern UI** - Clean design with Tailwind CSS and Framer Motion animations
 - 📈 **Detailed Reports** - See who owes whom with automatic balance calculations
 - 🌐 **Multi-language Support** - Bengali and English language options
+
+## About the Developer
+
+**Hey, I'm Mehedi Hasan Rohan**  
+I'm a CSE student at Daffodil International University. I built this project out of curiosity and a genuine need—managing a student household is tough! Use this app to make your day-to-day easier. It's currently focused on the essentials, so please don't try to break it. If you run into any issues or have suggestions, feel free to reach out.
+
+- GitHub: `https://github.com/rav3n70-1`
+- Portfolio: `https://ravensportfolio.vercel.app/`
+- LinkedIn: `https://www.linkedin.com/in/mehedi-hasan-rohan-62b5512aa/`
+- Facebook: `https://www.facebook.com/rav3n69`
+- Instagram: `https://www.instagram.com/ig_r4v39`
 
 ## Tech Stack
 
@@ -79,6 +92,20 @@ npm run dev
 npm run build
 ```
 
+## Environment Variables
+
+Create a `.env` file in the project root with the following keys (values from your Firebase project):
+
+```
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_MEASUREMENT_ID=
+```
+
 ## Project Structure
 
 ```
@@ -92,6 +119,7 @@ src/
 │   ├── Login.jsx
 │   ├── Dashboard.jsx
 │   ├── Expenses.jsx
+│   ├── Profile.jsx
 │   └── Settings.jsx
 ├── context/            # React Context providers
 │   ├── AuthContext.jsx
@@ -121,6 +149,10 @@ src/
 - View own pending and approved expenses
 - See household totals and balances
 
+## Screenshots
+
+You can add screenshots or GIFs of key flows (Dashboard, Add Expense, Balances) here to help users quickly understand the app.
+
 ## Database Structure
 
 ```
@@ -143,6 +175,12 @@ households/
 - Offline support with service worker
 - Cached assets for fast loading
 - Native app-like experience
+
+## Acknowledgements
+
+- Icons by Lucide React
+- Animations by Framer Motion
+- Built with React + Vite and styled with Tailwind CSS
 
 ## Contributing
 
