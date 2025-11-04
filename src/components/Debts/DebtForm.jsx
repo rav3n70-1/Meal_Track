@@ -1,6 +1,6 @@
 // Form component for adding new debt records
-import React, { useState } from 'react';
-import { collection, addDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
@@ -10,12 +10,14 @@ import Button from '../ui/Button';
 import DatePicker from '../ui/DatePicker';
 import { DollarSign, FileText } from 'lucide-react';
 import { getDisplayName } from '../../utils/displayName';
+import { roundDebtToNearestTen } from '../../utils/calculations';
 import toast from 'react-hot-toast';
 
-const DebtForm = ({ onSuccess, onCancel }) => {
+const DebtForm = ({ debt, onSuccess, onCancel }) => {
   const { currentUser } = useAuth();
   const { household, members } = useHousehold();
   const [loading, setLoading] = useState(false);
+  const isEditMode = !!debt;
 
   const [formData, setFormData] = useState({
     debtor: currentUser?.uid || '', // Person who owes money
@@ -25,6 +27,34 @@ const DebtForm = ({ onSuccess, onCancel }) => {
     date: new Date().toISOString().split('T')[0],
     notes: ''
   });
+  
+  const [debtRounding, setDebtRounding] = useState(null); // Store rounding calculation
+
+  // Pre-populate form if editing
+  useEffect(() => {
+    if (debt) {
+      const amount = debt.originalAmount?.toString() || '';
+      setFormData({
+        debtor: debt.debtor || currentUser?.uid || '',
+        creditor: debt.creditor || '',
+        amount: amount,
+        reason: debt.reason || '',
+        date: debt.date || new Date().toISOString().split('T')[0],
+        notes: debt.notes || ''
+      });
+      
+      // Initialize rounding calculation if amount exists
+      if (amount) {
+        const amountNum = parseFloat(amount);
+        if (!isNaN(amountNum) && amountNum > 0) {
+          const rounding = roundDebtToNearestTen(amountNum);
+          setDebtRounding(rounding);
+        }
+      }
+    } else {
+      setDebtRounding(null);
+    }
+  }, [debt, currentUser]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -32,6 +62,17 @@ const DebtForm = ({ onSuccess, onCancel }) => {
       ...prev,
       [name]: value
     }));
+    
+    // Calculate rounding when amount changes
+    if (name === 'amount' && value) {
+      const amount = parseFloat(value);
+      if (!isNaN(amount) && amount > 0) {
+        const rounding = roundDebtToNearestTen(amount);
+        setDebtRounding(rounding);
+      } else {
+        setDebtRounding(null);
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -60,41 +101,74 @@ const DebtForm = ({ onSuccess, onCancel }) => {
     setLoading(true);
 
     try {
-      const debtsRef = collection(db, 'households', household.id, 'debts');
+      // Round debt amount to nearest 10
+      const inputAmount = parseFloat(formData.amount);
+      const rounding = roundDebtToNearestTen(inputAmount);
+      const roundedAmount = rounding.rounded;
       
-      await addDoc(debtsRef, {
-        debtor: formData.debtor,
-        creditor: formData.creditor,
-        originalAmount: parseFloat(formData.amount),
-        remainingAmount: parseFloat(formData.amount),
-        reason: formData.reason.trim(),
-        date: formData.date,
-        notes: formData.notes.trim(),
-        status: 'pending', // pending, approved, rejected, paid
-        type: 'manual', // manual debts require approval, auto debts are from expenses
-        payments: [], // Array of payment records
-        createdAt: new Date().toISOString(),
-        createdBy: currentUser.uid,
-        approvedBy: null,
-        approvedAt: null,
-        paidAt: null
-      });
+      if (isEditMode) {
+        // Update existing debt
+        const debtRef = doc(db, 'households', household.id, 'debts', debt.id);
+        
+        // Calculate new remaining amount if original amount changed
+        let newRemainingAmount = debt.remainingAmount;
+        const oldOriginalAmount = debt.originalAmount || debt.remainingAmount;
+        if (roundedAmount !== oldOriginalAmount) {
+          const amountDifference = roundedAmount - oldOriginalAmount;
+          newRemainingAmount = Math.max(0, debt.remainingAmount + amountDifference);
+        }
 
-      toast.success('Debt record submitted for manager approval!');
-      
-      // Reset form
-      setFormData({
-        debtor: currentUser?.uid || '',
-        creditor: '',
-        amount: '',
-        reason: '',
-        date: new Date().toISOString().split('T')[0],
-        notes: ''
-      });
+        await updateDoc(debtRef, {
+          debtor: formData.debtor,
+          creditor: formData.creditor,
+          originalAmount: roundedAmount,
+          remainingAmount: newRemainingAmount,
+          reason: formData.reason.trim(),
+          date: formData.date,
+          notes: formData.notes.trim(),
+          updatedAt: new Date().toISOString()
+        });
 
-      if (onSuccess) onSuccess();
+        toast.success('Debt updated successfully!');
+        if (onSuccess) onSuccess({ ...formData, originalAmount: roundedAmount, remainingAmount: newRemainingAmount });
+      } else {
+        // Create new debt
+        const debtsRef = collection(db, 'households', household.id, 'debts');
+        
+        await addDoc(debtsRef, {
+          debtor: formData.debtor,
+          creditor: formData.creditor,
+          originalAmount: roundedAmount,
+          remainingAmount: roundedAmount,
+          reason: formData.reason.trim(),
+          date: formData.date,
+          notes: formData.notes.trim(),
+          status: 'pending', // pending, approved, rejected, paid
+          type: 'manual', // manual debts require approval, auto debts are from expenses
+          payments: [], // Array of payment records
+          createdAt: new Date().toISOString(),
+          createdBy: currentUser.uid,
+          approvedBy: null,
+          approvedAt: null,
+          paidAt: null
+        });
+
+        toast.success('Debt record submitted for manager approval!');
+        
+        // Reset form
+        setFormData({
+          debtor: currentUser?.uid || '',
+          creditor: '',
+          amount: '',
+          reason: '',
+          date: new Date().toISOString().split('T')[0],
+          notes: ''
+        });
+
+        if (onSuccess) onSuccess();
+      }
     } catch (error) {
-      toast.error('Failed to add debt record');
+      toast.error(isEditMode ? 'Failed to update debt record' : 'Failed to add debt record');
     } finally {
       setLoading(false);
     }
@@ -128,18 +202,29 @@ const DebtForm = ({ onSuccess, onCancel }) => {
         required
       />
 
-      <Input
-        label="Amount (৳)"
-        name="amount"
-        type="number"
-        step="0.01"
-        min="0"
-        value={formData.amount}
-        onChange={handleChange}
-        placeholder="0.00"
-        icon={<span className="text-primary font-bold">৳</span>}
-        required
-      />
+      <div className="space-y-2">
+        <Input
+          label="Amount (৳)"
+          name="amount"
+          type="number"
+          step="0.01"
+          min="0"
+          value={formData.amount}
+          onChange={handleChange}
+          placeholder="0.00"
+          icon={<span className="text-primary font-bold">৳</span>}
+          required
+        />
+        {debtRounding && (
+          <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+            <p className="text-sm font-medium text-primary">Calculation:</p>
+            <p className="text-xs text-muted-foreground mt-1">{debtRounding.calculation}</p>
+            <p className="text-sm font-semibold text-primary mt-2">
+              Debt amount: ৳{debtRounding.rounded.toFixed(2)}
+            </p>
+          </div>
+        )}
+      </div>
 
       <Input
         label="Reason"
@@ -175,7 +260,7 @@ const DebtForm = ({ onSuccess, onCancel }) => {
 
       <div className="flex gap-3 pt-4">
         <Button type="submit" disabled={loading} className="flex-1">
-          {loading ? 'Submitting...' : 'Submit Debt Record'}
+          {loading ? (isEditMode ? 'Updating...' : 'Submitting...') : (isEditMode ? 'Update Debt' : 'Submit Debt Record')}
         </Button>
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel}>

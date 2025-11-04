@@ -15,6 +15,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { getDisplayName } from '../../utils/displayName';
+import { roundUpSharedAmount } from '../../utils/calculations';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -40,9 +41,12 @@ const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
   const items = expense.items || [{ name: expense.item, amount: expense.amount, buyer: expense.buyer }];
   const totalAmount = expense.totalAmount || expense.amount;
   const sharedMembers = expense.sharedAmong?.map(uid => memberLookup[uid]) || [];
-  const sharePerPerson = sharedMembers.length > 0 
-    ? parseFloat(totalAmount) / sharedMembers.length 
-    : 0;
+  
+  // Calculate rounded up share per person
+  const shareCalc = sharedMembers.length > 0 
+    ? roundUpSharedAmount(parseFloat(totalAmount), sharedMembers.length)
+    : { exact: 0, rounded: 0, calculation: '' };
+  const sharePerPerson = shareCalc.rounded;
 
   const handleApprove = async () => {
     if (role !== 'manager') {
@@ -280,6 +284,43 @@ const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
             <Users className="text-primary" size={20} />
             <h4 className="font-semibold">Shared Among ({sharedMembers.length})</h4>
           </div>
+          
+          {/* Calculation Display */}
+          {shareCalc.calculation && (
+            <div className="mb-3 p-3 bg-primary/10 rounded-lg border border-primary/20 space-y-2">
+              <p className="text-sm font-medium text-primary">Calculation Breakdown:</p>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Total:</span>
+                  <span>৳{(parseFloat(totalAmount)).toFixed(2)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Shared among:</span>
+                  <span>{sharedMembers.length} {sharedMembers.length === 1 ? 'person' : 'people'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Exact share:</span>
+                  <span>৳{shareCalc.exact.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-primary font-semibold">
+                  <span className="font-medium">Rounded to nearest 10:</span>
+                  <span>
+                    ৳{shareCalc.exact.toFixed(2)}
+                    {shareCalc.difference !== 0 && (
+                      <>
+                        {shareCalc.difference > 0 ? '+' : ''}৳{Math.abs(shareCalc.difference).toFixed(2)}
+                      </>
+                    )}
+                    {' = '}৳{shareCalc.rounded.toFixed(2)}
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-primary/20 text-xs italic text-muted-foreground">
+                  This rounding up is necessary to make calculations and debt payment easier
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {sharedMembers.map((member) => (
               <div 
@@ -296,7 +337,7 @@ const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
                   )}
                   <span className="text-sm font-medium">{getDisplayName(member)}</span>
                 </div>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm font-semibold">
                   ৳{sharePerPerson.toFixed(2)}
                 </span>
               </div>

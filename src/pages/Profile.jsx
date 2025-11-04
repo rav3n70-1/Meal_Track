@@ -10,7 +10,7 @@ import NicknameModal from '../components/ui/NicknameModal';
 import { useAuth } from '../context/AuthContext';
 import { useHousehold } from '../context/HouseholdContext';
 import { useLanguage } from '../context/LanguageContext';
-import { calculateBalances } from '../utils/calculations';
+import { calculateBalances, getExpenseTotalAmount } from '../utils/calculations';
 import { getDisplayName, getFullName } from '../utils/displayName';
 import Loading from '../components/ui/Loading';
 
@@ -264,12 +264,12 @@ const Profile = () => {
                       className="flex items-center justify-between p-3 bg-accent rounded-lg"
                     >
                       <div>
-                        <p className="font-medium">{expense.item}</p>
+                        <p className="font-medium">{expense.item || (expense.items && expense.items.length > 0 ? expense.items.map(i => i.name).join(', ') : 'Expense')}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(expense.date).toLocaleDateString()}
+                          {expense.date ? new Date(expense.date).toLocaleDateString() : 'No date'}
                         </p>
                       </div>
-                      <p className="font-bold text-primary">৳{parseFloat(expense.amount).toFixed(2)}</p>
+                      <p className="font-bold text-primary">৳{getExpenseTotalAmount(expense).toFixed(2)}</p>
                     </motion.div>
                   ))}
                   {myApprovedExpenses.length > 5 && (
@@ -306,14 +306,14 @@ const Profile = () => {
                       className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
                     >
                       <div>
-                        <p className="font-medium">{expense.item}</p>
+                        <p className="font-medium">{expense.item || (expense.items && expense.items.length > 0 ? expense.items.map(i => i.name).join(', ') : 'Expense')}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(expense.date).toLocaleDateString()}
+                          {expense.date ? new Date(expense.date).toLocaleDateString() : 'No date'}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-yellow-600 dark:text-yellow-400">
-                          ৳{parseFloat(expense.amount).toFixed(2)}
+                          ৳{getExpenseTotalAmount(expense).toFixed(2)}
                         </p>
                         <Badge variant="warning" className="text-xs mt-1">Pending</Badge>
                       </div>

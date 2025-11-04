@@ -42,14 +42,14 @@ const Reports = () => {
     return calculateDebts(memberBalances);
   }, [memberBalances]);
 
-  // Member Contributions chart (match main dashboard logic): include non-rejected expenses and debt repayments
-  const nonRejectedFilteredExpenses = useMemo(() => {
-    return filteredExpenses.filter(exp => exp.status !== 'rejected');
+  // Member Contributions chart - only include approved expenses and debt repayments
+  const approvedFilteredExpenses = useMemo(() => {
+    return filteredExpenses.filter(exp => exp.status === 'approved');
   }, [filteredExpenses]);
 
   const contributionsForChart = useMemo(() => {
-    return getContributionsByMember(nonRejectedFilteredExpenses, members, debts);
-  }, [nonRejectedFilteredExpenses, members, debts]);
+    return getContributionsByMember(approvedFilteredExpenses, members, debts);
+  }, [approvedFilteredExpenses, members, debts]);
 
   // Map of userId -> display name for debts table
   const userIdToName = useMemo(() => {
@@ -178,7 +178,7 @@ const Reports = () => {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <BalanceChart balances={contributionsForChart} />
-          <ExpenseChart expenses={nonRejectedFilteredExpenses} />
+          <ExpenseChart expenses={approvedFilteredExpenses} />
         </div>
 
         {/* Rent & Bills Summary (excludes personal expenses) */}

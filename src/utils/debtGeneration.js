@@ -1,6 +1,7 @@
 // Utility functions for automatically generating debts from expenses
 import { collection, doc, setDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { roundUpSharedAmount, roundDebtToNearestTen } from './calculations';
 
 /**
  * Calculate automatic debts from approved expenses
@@ -29,21 +30,23 @@ export const calculateAutomaticDebts = (expenses, members) => {
         const itemAmount = parseFloat(item.amount) || 0;
         const buyer = item.buyer;
         
-        if (itemAmount <= 0 || !buyer) return;
-        
-        const sharePerPerson = itemAmount / sharedAmong.length;
-        
+                if (itemAmount <= 0 || !buyer) return;
+
+        // Use rounded up share per person
+        const shareCalc = roundUpSharedAmount(itemAmount, sharedAmong.length);
+        const sharePerPerson = shareCalc.rounded;
+
         // Each person in sharedAmong owes the buyer their share of this item
         sharedAmong.forEach(memberId => {
           // Skip if the buyer is also sharing (they don't owe themselves)
           if (memberId === buyer) return;
-          
+
           const debtKey = `${memberId}:${buyer}`;
-          
+
           if (!debtMap[debtKey]) {
             debtMap[debtKey] = 0;
           }
-          
+
           debtMap[debtKey] += sharePerPerson;
         });
       });
@@ -52,21 +55,23 @@ export const calculateAutomaticDebts = (expenses, members) => {
       const amount = parseFloat(expense.amount) || 0;
       const buyer = expense.buyer;
       
-      if (amount <= 0 || !buyer) return;
-      
-      const sharePerPerson = amount / sharedAmong.length;
-      
+            if (amount <= 0 || !buyer) return;
+
+      // Use rounded up share per person
+      const shareCalc = roundUpSharedAmount(amount, sharedAmong.length);
+      const sharePerPerson = shareCalc.rounded;
+
       // Each person in sharedAmong owes the buyer their share
       sharedAmong.forEach(memberId => {
         // Skip if the buyer is also sharing (they don't owe themselves)
         if (memberId === buyer) return;
-        
+
         const debtKey = `${memberId}:${buyer}`;
-        
+
         if (!debtMap[debtKey]) {
           debtMap[debtKey] = 0;
         }
-        
+
         debtMap[debtKey] += sharePerPerson;
       });
     }
@@ -75,15 +80,20 @@ export const calculateAutomaticDebts = (expenses, members) => {
   // Convert debt map to array of debt objects
   const automaticDebts = [];
   
-  Object.entries(debtMap).forEach(([key, amount]) => {
+    Object.entries(debtMap).forEach(([key, amount]) => {
     if (amount > 0.01) { // Only include debts over 1 cent
       const [debtor, creditor] = key.split(':');
-      
+
+      // Round debt amount to nearest 10
+      const debtRounding = roundDebtToNearestTen(amount);
+
       automaticDebts.push({
         debtor,
         creditor,
-        amount: Math.round(amount * 100) / 100, // Round to 2 decimal places
-        type: 'auto'
+        amount: debtRounding.rounded, // Rounded to nearest 10
+        originalAmount: amount, // Keep original for calculation display
+        type: 'auto',
+        calculation: debtRounding.calculation
       });
     }
   });

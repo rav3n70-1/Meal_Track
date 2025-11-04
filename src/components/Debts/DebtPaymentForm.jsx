@@ -14,7 +14,7 @@ import confetti from 'canvas-confetti';
 
 const DebtPaymentForm = ({ debt, onSuccess, onCancel }) => {
   const { currentUser } = useAuth();
-  const { household, members } = useHousehold();
+  const { household, members, getUserRole } = useHousehold();
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -30,6 +30,15 @@ const DebtPaymentForm = ({ debt, onSuccess, onCancel }) => {
   });
 
   const creditor = memberLookup[debt.creditor];
+
+  // Helper function to calculate actual remaining amount from payments
+  const calculateActualRemaining = () => {
+    const existingPayments = Array.isArray(debt.payments) ? debt.payments : [];
+    const totalPaid = existingPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    return Math.max(0, (debt.originalAmount || 0) - totalPaid);
+  };
+
+  const actualRemaining = calculateActualRemaining();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -81,22 +90,35 @@ const DebtPaymentForm = ({ debt, onSuccess, onCancel }) => {
       return;
     }
 
-    if (paymentAmount > debt.remainingAmount) {
-      toast.error(`Payment amount cannot exceed remaining debt of ৳${debt.remainingAmount.toFixed(2)}`);
+    // Calculate total paid from existing payments
+    const existingPayments = Array.isArray(debt.payments) ? debt.payments : [];
+    const totalPaid = existingPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    const currentRemaining = Math.max(0, (debt.originalAmount || 0) - totalPaid);
+
+    if (paymentAmount > currentRemaining) {
+      toast.error(`Payment amount cannot exceed remaining debt of ৳${currentRemaining.toFixed(2)}`);
       return;
     }
 
     setLoading(true);
 
     try {
-      const debtRef = doc(db, 'households', household.id, 'debts', debt.id);
+      const debtRef = doc(db, 'households', household.id, 'debts', debt.id);    
+
+      // Calculate new remaining amount from total payments (including this one)
+      const newTotalPaid = totalPaid + paymentAmount;
+      const newRemainingAmount = Math.max(0, (debt.originalAmount || 0) - newTotalPaid);
       
-      const newRemainingAmount = debt.remainingAmount - paymentAmount;
+      // If manager is recording payment, attribute it to the debtor (member whose debt was paid off)
+      // Otherwise, attribute it to the current user (the debtor themselves)
+      const role = getUserRole();
+      const paidBy = role === 'manager' ? debt.debtor : currentUser.uid;
+      
       const payment = {
         amount: paymentAmount,
         date: formData.date,
         notes: formData.notes.trim(),
-        paidBy: currentUser.uid,
+        paidBy: paidBy,
         paidAt: new Date().toISOString()
       };
 
@@ -106,22 +128,23 @@ const DebtPaymentForm = ({ debt, onSuccess, onCancel }) => {
       };
 
       // If fully paid, update status and paidAt
-      if (newRemainingAmount === 0) {
+      if (newRemainingAmount <= 0.01) {
         updateData.status = 'paid';
         updateData.paidAt = new Date().toISOString();
+        updateData.remainingAmount = 0; // Ensure it's exactly 0
       }
 
       await updateDoc(debtRef, updateData);
 
       // Show celebration if debt is fully paid
-      if (newRemainingAmount === 0) {
+      if (newRemainingAmount <= 0.01) {
         triggerCelebration();
-        toast.success(
-          '🎉 Congratulations! You have fully paid off this debt! 🎉',
-          { duration: 5000 }
-        );
+        const message = role === 'manager' 
+          ? '🎉 Payment recorded! This debt has been fully paid off! 🎉'
+          : '🎉 Congratulations! You have fully paid off this debt! 🎉';
+        toast.success(message, { duration: 5000 });
       } else {
-        toast.success(`Payment of ৳${paymentAmount.toFixed(2)} recorded successfully!`);
+        toast.success(`Payment of ৳${paymentAmount.toFixed(2)} recorded successfully! Remaining: ৳${newRemainingAmount.toFixed(2)}`);                                                                        
       }
 
       if (onSuccess) onSuccess();
@@ -141,13 +164,33 @@ const DebtPaymentForm = ({ debt, onSuccess, onCancel }) => {
           <span className="font-medium">{getDisplayName(creditor)}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">Remaining Balance:</span>
-          <span className="font-bold text-lg text-red-600 dark:text-red-400">
-            ৳{debt.remainingAmount.toFixed(2)}
+          <span className="text-sm text-muted-foreground">Original Amount:</span>
+          <span className="font-bold text-primary">
+            ৳{(debt.originalAmount || 0).toFixed(2)}
           </span>
         </div>
+        {(() => {
+          const existingPayments = Array.isArray(debt.payments) ? debt.payments : [];
+          const totalPaid = existingPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+          return (
+            <>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Total Paid:</span>
+                <span className="font-medium text-green-600 dark:text-green-400">
+                  ৳{totalPaid.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Remaining Balance:</span>
+                <span className="font-bold text-lg text-red-600 dark:text-red-400">
+                  ৳{actualRemaining.toFixed(2)}
+                </span>
+              </div>
+            </>
+          );
+        })()}
         <div className="text-xs text-muted-foreground">
-          Original: ৳{debt.originalAmount.toFixed(2)} • Reason: {debt.reason}
+          Reason: {debt.reason}
         </div>
       </div>
 
@@ -158,10 +201,10 @@ const DebtPaymentForm = ({ debt, onSuccess, onCancel }) => {
           type="number"
           step="0.01"
           min="0"
-          max={debt.remainingAmount}
+          max={actualRemaining}
           value={formData.amount}
           onChange={handleChange}
-          placeholder={`Max: ${debt.remainingAmount.toFixed(2)}`}
+          placeholder={`Max: ${actualRemaining.toFixed(2)}`}
           icon={<span className="text-primary font-bold">৳</span>}
           required
         />

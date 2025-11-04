@@ -37,25 +37,25 @@ const Dashboard = () => {
     return getExpenseStats(expenses);
   }, [expenses]);
 
-  // Non-rejected expenses (approved + pending) for display/charts
-  const nonRejectedExpenses = useMemo(() => {
-    return expenses.filter(exp => exp.status !== 'rejected');
+  // Approved expenses only for charts and calculations
+  const approvedExpenses = useMemo(() => {
+    return expenses.filter(exp => exp.status === 'approved');
   }, [expenses]);
 
-  // Display total should reflect non-rejected expenses so users see immediate changes
+  // Display total should only include approved expenses (pending expenses are not counted until approved)
   const displayTotal = useMemo(() => {
-    return nonRejectedExpenses.reduce((sum, exp) => sum + getExpenseTotalAmount(exp), 0);
-  }, [nonRejectedExpenses]);
+    return approvedExpenses.reduce((sum, exp) => sum + getExpenseTotalAmount(exp), 0);
+  }, [approvedExpenses]);
 
   // Calculate balances (including debts)
   const { grandTotal, memberBalances } = useMemo(() => {
     return calculateBalances(expenses, members, debts);
   }, [expenses, members, debts]);
 
-  // Member contributions chart should reflect current (non-rejected) expenses and debt repayments
+  // Member contributions chart should only reflect approved expenses and debt repayments
   const contributionsForChart = useMemo(() => {
-    return getContributionsByMember(nonRejectedExpenses, members, debts);
-  }, [nonRejectedExpenses, members, debts]);
+    return getContributionsByMember(approvedExpenses, members, debts);
+  }, [approvedExpenses, members, debts]);
 
   // Get current user's balance
   const myBalance = useMemo(() => {
@@ -199,7 +199,7 @@ const Dashboard = () => {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <BalanceChart balances={contributionsForChart} />
-          <ExpenseChart expenses={nonRejectedExpenses} />
+          <ExpenseChart expenses={approvedExpenses} />
         </div>
 
         {/* Balance Summary */}
@@ -236,11 +236,14 @@ const Dashboard = () => {
       </Modal>
 
       {/* Balance Details Modal */}
-      <BalanceDetailsModal
-        isOpen={showBalanceDetails}
-        onClose={() => setShowBalanceDetails(false)}
-        balances={memberBalances}
-      />
+      {myBalance && (
+        <BalanceDetailsModal
+          isOpen={showBalanceDetails}
+          onClose={() => setShowBalanceDetails(false)}
+          balance={myBalance}
+          userName={currentUser?.displayName || 'You'}
+        />
+      )}
     </Layout>
   );
 }

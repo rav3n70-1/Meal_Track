@@ -10,6 +10,7 @@ import Button from '../ui/Button';
 import DatePicker from '../ui/DatePicker';
 import { ShoppingBag, Plus, Trash2, X } from 'lucide-react';
 import { getDisplayName } from '../../utils/displayName';
+import { roundUpSharedAmount } from '../../utils/calculations';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -167,6 +168,11 @@ const ExpenseForm = ({ expense = null, onSuccess, onCancel }) => {
   };
 
   const totalAmount = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+  
+  // Calculate rounding for shared amounts
+  const shareCalc = formData.sharedAmong.length > 0 && totalAmount > 0
+    ? roundUpSharedAmount(totalAmount, formData.sharedAmong.length)
+    : null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -301,6 +307,42 @@ const ExpenseForm = ({ expense = null, onSuccess, onCancel }) => {
         <p className="text-xs text-muted-foreground">
           Selected: {formData.sharedAmong.length} member(s)
         </p>
+        
+        {/* Show rounding calculation */}
+                  {shareCalc && (
+            <div className="p-3 bg-primary/10 rounded-lg border border-primary/20 space-y-2">
+              <p className="text-sm font-medium text-primary">Calculation Breakdown:</p>
+              <div className="space-y-2 text-xs text-muted-foreground">
+               <div className="flex items-center gap-2">
+                 <span className="font-medium">Total:</span>
+                 <span>৳{totalAmount.toFixed(2)}</span>
+               </div>
+               <div className="flex items-center gap-2">
+                 <span className="font-medium">Shared among:</span>
+                 <span>{formData.sharedAmong.length} {formData.sharedAmong.length === 1 ? 'person' : 'people'}</span>
+               </div>
+               <div className="flex items-center gap-2">
+                 <span className="font-medium">Exact share:</span>
+                 <span>৳{shareCalc.exact.toFixed(2)}</span>
+                              </div>
+               <div className="flex items-center gap-2 text-primary font-semibold">
+                 <span className="font-medium">Rounded to nearest 10:</span>
+                 <span>
+                   ৳{shareCalc.exact.toFixed(2)}
+                   {shareCalc.difference !== 0 && (
+                     <>
+                       {shareCalc.difference > 0 ? '+' : ''}৳{Math.abs(shareCalc.difference).toFixed(2)}
+                     </>
+                   )}
+                   {' = '}৳{shareCalc.rounded.toFixed(2)}
+                                  </span>
+               </div>
+               <div className="pt-2 border-t border-primary/20 text-xs italic text-muted-foreground">
+                 This rounding up is necessary to make calculations and debt payment easier
+               </div>
+             </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">

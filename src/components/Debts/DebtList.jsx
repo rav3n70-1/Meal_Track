@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../../firebase/config';
 import { 
   ArrowRight, 
   CheckCircle, 
@@ -10,22 +12,29 @@ import {
   DollarSign,
   Calendar,
   Zap,
-  User
+  User,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import DebtPaymentForm from './DebtPaymentForm';
+import DebtDetails from './DebtDetails';
+import DebtForm from './DebtForm';
 import { getDisplayName } from '../../utils/displayName';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
+import toast from 'react-hot-toast';
 
 const DebtList = ({ debts }) => {
   const { currentUser } = useAuth();
-  const { members, getUserRole } = useHousehold();
+  const { members, getUserRole, household, expenses } = useHousehold();
   const [selectedDebt, setSelectedDebt] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [filter, setFilter] = useState('all'); // all, my-debts, owed-to-me
   const role = getUserRole();
 
@@ -76,6 +85,40 @@ const DebtList = ({ debts }) => {
   const handlePaymentClick = (debt) => {
     setSelectedDebt(debt);
     setShowPaymentModal(true);
+  };
+
+  const handleEditClick = (debt) => {
+    setSelectedDebt(debt);
+    setShowEditModal(true);
+  };
+
+  const handleDebtClick = (debt) => {
+    setSelectedDebt(debt);
+    setShowDetailsModal(true);
+  };
+
+  const handleDeleteClick = async (debt) => {
+    if (role !== 'manager') {
+      toast.error('Only managers can delete debts');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this debt? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const debtRef = doc(db, 'households', household.id, 'debts', debt.id);
+      await deleteDoc(debtRef);
+      toast.success('Debt deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete debt');
+    }
+  };
+
+  const handleEditSuccess = () => {
+    setShowEditModal(false);
+    setSelectedDebt(null);
   };
 
   if (filteredDebts.length === 0) {
@@ -133,7 +176,14 @@ const DebtList = ({ debts }) => {
           {filteredDebts.map((debt, index) => {
             const debtor = memberLookup[debt.debtor];
             const creditor = memberLookup[debt.creditor];
-            const percentPaid = ((debt.originalAmount - debt.remainingAmount) / debt.originalAmount) * 100;
+            
+            // Calculate actual remaining amount from payments (more reliable than stored value)
+            const existingPayments = Array.isArray(debt.payments) ? debt.payments : [];
+            const totalPaid = existingPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+            const actualRemaining = Math.max(0, (debt.originalAmount || 0) - totalPaid);
+            const percentPaid = debt.originalAmount > 0 
+              ? ((totalPaid / debt.originalAmount) * 100)
+              : 0;
             const isMyDebt = debt.debtor === currentUser?.uid;
 
             return (
@@ -142,7 +192,8 @@ const DebtList = ({ debts }) => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="border border-border rounded-lg p-4 space-y-3"
+                className="border border-border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => handleDebtClick(debt)}
               >
                 {/* Header */}
                 <div className="flex items-start justify-between">
@@ -204,9 +255,9 @@ const DebtList = ({ debts }) => {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Remaining:</span>
                     <span className="font-bold text-lg">
-                      {debt.remainingAmount > 0 ? (
+                      {actualRemaining > 0 ? (
                         <span className="text-red-600 dark:text-red-400">
-                          ৳{debt.remainingAmount.toFixed(2)}
+                          ৳{actualRemaining.toFixed(2)}
                         </span>
                       ) : (
                         <span className="text-green-600 dark:text-green-400">
@@ -223,15 +274,13 @@ const DebtList = ({ debts }) => {
                       <span>{percentPaid.toFixed(0)}%</span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${percentPaid}%` }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        className={`h-full rounded-full ${
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
                           percentPaid === 100 
                             ? 'bg-green-600' 
                             : 'bg-gradient-to-r from-yellow-500 to-primary'
                         }`}
+                        style={{ width: `${Math.min(100, Math.max(0, percentPaid))}%` }}
                       />
                     </div>
                   </div>
@@ -261,17 +310,54 @@ const DebtList = ({ debts }) => {
                   </div>
                 )}
 
-                {/* Action Button */}
-                {isMyDebt && debt.remainingAmount > 0 && debt.status === 'approved' && (
-                  <Button 
-                    size="sm" 
-                    onClick={() => handlePaymentClick(debt)}
-                    icon={<DollarSign size={16} />}
-                    className="w-full"
-                  >
-                    {debt.type === 'auto' ? 'Record Payment' : 'Record Payment (Manual Debt)'}
-                  </Button>
-                )}
+                {/* Action Buttons */}
+                <div className="flex gap-2 flex-wrap">
+                  {/* Record Payment - Managers can record for any debt, debtors can record for their own */}
+                  {actualRemaining > 0 && debt.status === 'approved' && 
+                   (isMyDebt || role === 'manager') && (
+                    <Button 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePaymentClick(debt);
+                      }}
+                      icon={<DollarSign size={16} />}
+                      className="flex-1 min-w-[140px]"
+                    >
+                      Record Payment
+                    </Button>
+                  )}
+                  
+                  {/* Edit - Managers can edit any debt */}
+                  {role === 'manager' && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditClick(debt);
+                      }}
+                      icon={<Edit size={16} />}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  
+                  {/* Delete - Managers can delete any debt */}
+                  {role === 'manager' && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(debt);
+                      }}
+                      icon={<Trash2 size={16} />}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </div>
                 
                 {/* Info for auto debts */}
                 {debt.type === 'auto' && debt.status === 'approved' && (
@@ -317,6 +403,39 @@ const DebtList = ({ debts }) => {
           />
         )}
       </Modal>
+
+      {/* Edit Debt Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedDebt(null);
+        }}
+        title="Edit Debt"
+        size="lg"
+      >
+        {selectedDebt && (
+          <DebtForm
+            debt={selectedDebt}
+            onSuccess={handleEditSuccess}
+            onCancel={() => {
+              setShowEditModal(false);
+              setSelectedDebt(null);
+            }}
+          />
+        )}
+      </Modal>
+
+      {/* Debt Details Modal */}
+      <DebtDetails
+        debt={selectedDebt}
+        isOpen={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false);
+          setSelectedDebt(null);
+        }}
+        expenses={expenses || []}
+      />
     </>
   );
 };

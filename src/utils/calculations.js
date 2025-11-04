@@ -20,6 +20,49 @@ export const getExpenseTotalAmount = (expense) => {
   return 0;
 };
 
+/**
+ * Round shared amount to nearest 10 (same as debt rounding)
+ * @param {number} amount - Total amount
+ * @param {number} numberOfPeople - Number of people sharing
+ * @returns {Object} Object with rounded amount and calculation details
+ */
+export const roundUpSharedAmount = (amount, numberOfPeople) => {
+  if (!numberOfPeople || numberOfPeople === 0) {
+    return {
+      exact: 0,
+      rounded: 0,
+      calculation: `৳${amount.toFixed(2)} ÷ ${numberOfPeople} = ৳0.00 per person`
+    };
+  }
+  
+  const exact = amount / numberOfPeople;
+  const rounded = Math.round(exact / 10) * 10; // Round to nearest 10 (same as debt rounding)
+  const difference = rounded - exact;
+  
+  return {
+    exact,
+    rounded,
+    difference,
+    calculation: `৳${amount.toFixed(2)} ÷ ${numberOfPeople} = ৳${exact.toFixed(2)} (exact)
+Rounded to nearest 10: ৳${rounded.toFixed(2)}`
+  };
+};
+
+/**
+ * Round debt amount to nearest 10
+ * @param {number} amount - Original debt amount
+ * @returns {Object} Object with rounded amount and calculation details
+ */
+export const roundDebtToNearestTen = (amount) => {
+  const rounded = Math.round(amount / 10) * 10;
+  
+  return {
+    original: amount,
+    rounded,
+    calculation: `৳${amount.toFixed(2)} rounded to nearest 10 = ৳${rounded.toFixed(2)}`
+  };
+};
+
 // Helper: map of buyerUid -> total paid for a given expense (supports items per buyer)
 const getBuyerPaymentsForExpense = (expense) => {
   const payments = {};
@@ -38,12 +81,13 @@ const getBuyerPaymentsForExpense = (expense) => {
 };
 
 // NEW: Compute contributions per member including debt repayments shifting shares
+// Note: Only approved expenses should be passed to this function for charts
 export const getContributionsByMember = (expenses, members, debts = []) => {
   const memberIdToName = Object.fromEntries(members.map(m => [m.uid, getDisplayName(m)]));
   const contributions = {};
   Object.keys(memberIdToName).forEach(uid => { contributions[uid] = 0; });
 
-  // Base: sum purchases by buyer from expenses (non-rejected recommended before passing)
+  // Base: sum purchases by buyer from expenses (should only be approved expenses)
   expenses.forEach(expense => {
     const buyerMap = getBuyerPaymentsForExpense(expense);
     Object.entries(buyerMap).forEach(([buyerId, amount]) => {
@@ -121,9 +165,13 @@ export const calculateBalances = (expenses, members, debts = []) => {
       }
     });
 
-    // Calculate share per person
+    // Calculate share per person (rounded up)
     const sharedAmong = expense.sharedAmong || [];
-    const sharePerPerson = sharedAmong.length > 0 ? amount / sharedAmong.length : 0;
+    let sharePerPerson = 0;
+    if (sharedAmong.length > 0) {
+      const shareCalc = roundUpSharedAmount(amount, sharedAmong.length);
+      sharePerPerson = shareCalc.rounded; // Use rounded up amount
+    }
 
     // Add to each person's share
     sharedAmong.forEach(memberId => {
@@ -132,6 +180,28 @@ export const calculateBalances = (expenses, members, debts = []) => {
       }
     });
   });
+
+  // Adjust totals with debt payments: when a debtor pays, it counts as their Total Paid
+  // and reduces the creditor's Total Paid accordingly (shifts contribution)
+  if (Array.isArray(debts)) {
+    debts
+      .filter(d => d.status !== 'rejected')
+      .forEach(debt => {
+        const creditorId = debt?.creditor;
+        const payments = Array.isArray(debt?.payments) ? debt.payments : [];
+        payments.forEach(payment => {
+          const paidBy = payment?.paidBy;
+          const amount = parseFloat(payment?.amount) || 0;
+          if (!amount) return;
+          if (paidBy && memberBalances[paidBy]) {
+            memberBalances[paidBy].totalPaid += amount;
+          }
+          if (creditorId && memberBalances[creditorId]) {
+            memberBalances[creditorId].totalPaid -= amount;
+          }
+        });
+      });
+  }
 
   // Calculate debt balances (only approved and not fully paid debts)
   const activeDebts = debts.filter(debt => debt.status === 'approved' && debt.remainingAmount > 0);
@@ -274,15 +344,16 @@ export const getExpenseStats = (expenses) => {
 
 /**
  * Group expenses by date for charts
- * @param {Array} expenses - Array of expenses
+ * @param {Array} expenses - Array of expenses (should only contain approved expenses)
  * @param {string} groupBy - 'day', 'week', 'month'
  * @returns {Array} Grouped expenses data
  */
 export const groupExpensesByDate = (expenses, groupBy = 'day') => {
-  const approvedOrPending = expenses.filter(exp => exp.status !== 'rejected');
+  // Only include approved expenses in charts
+  const approvedExpenses = expenses.filter(exp => exp.status === 'approved');
   const grouped = {};
 
-  approvedOrPending.forEach(expense => {
+  approvedExpenses.forEach(expense => {
     const date = new Date(expense.date);
     let key;
 
