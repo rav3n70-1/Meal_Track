@@ -1,7 +1,7 @@
 // Navigation bar component
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Moon, Sun, LogOut } from 'lucide-react';
+import { Menu, X, Moon, Sun, LogOut, Languages } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -12,7 +12,7 @@ const Navbar = ({ onMenuToggle }) => {
   const { currentUser, signOut } = useAuth();
   const { household } = useHousehold();
   const { theme, toggleTheme } = useTheme();
-  const { t } = useLanguage();
+  const { t, language, toggleLanguage } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
