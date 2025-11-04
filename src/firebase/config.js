@@ -3,15 +3,15 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Firebase configuration
+// Firebase configuration (from environment variables)
 const firebaseConfig = {
-  apiKey: "AIzaSyDVgLLM19SnoBY50ZMDQC5Kan5p0Sr2aec",
-  authDomain: "meal-tracker-11262.firebaseapp.com",
-  projectId: "meal-tracker-11262",
-  storageBucket: "meal-tracker-11262.firebasestorage.app",
-  messagingSenderId: "989360320237",
-  appId: "1:989360320237:web:23e6020552a74d03dfa6e4",
-  measurementId: "G-M67VFT7ZVM"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase

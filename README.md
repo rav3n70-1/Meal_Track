@@ -39,7 +39,7 @@ A modern, responsive Progressive Web App (PWA) for managing shared household mea
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd meal-expense-tracker
+cd MealTracker
 ```
 
 2. Install dependencies:
@@ -55,7 +55,7 @@ npm install
 
 4. Create `.env` file:
 ```bash
-cp .env.example .env
+cp env.example .env
 ```
 
 5. Add your Firebase configuration to `.env`:
@@ -66,6 +66,7 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
+VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 ```
 
 6. Start the development server:
@@ -145,9 +146,9 @@ households/
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Use the provided issue and PR templates.
 
 ## License
 
-MIT License - feel free to use this project for personal or commercial purposes.
+This project is licensed under the [MIT License](LICENSE).
 

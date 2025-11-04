@@ -11,8 +11,15 @@ import { roundUpSharedAmount, roundDebtToNearestTen } from './calculations';
  * @returns {Array} Array of consolidated debt objects
  */
 export const calculateAutomaticDebts = (expenses, members) => {
-  // Filter only approved expenses
-  const approvedExpenses = expenses.filter(exp => exp.status === 'approved');
+  // Include approved expenses and legacy records where status is missing/truthy
+  // Exclude only explicit rejections
+  const approvedExpenses = expenses.filter(exp => {
+    const status = typeof exp.status === 'string' ? exp.status.toLowerCase() : exp.status;
+    if (status === 'rejected') return false;
+    if (status === 'approved' || status === true) return true;
+    // If status is pending, skip; if undefined (legacy), include
+    return typeof status === 'undefined';
+  });
   
   // Create a map to track net amounts owed between members
   // Key: "debtor_uid:creditor_uid", Value: amount
@@ -80,7 +87,7 @@ export const calculateAutomaticDebts = (expenses, members) => {
   // Convert debt map to array of debt objects
   const automaticDebts = [];
   
-    Object.entries(debtMap).forEach(([key, amount]) => {
+  Object.entries(debtMap).forEach(([key, amount]) => {
     if (amount > 0.01) { // Only include debts over 1 cent
       const [debtor, creditor] = key.split(':');
 
@@ -116,11 +123,12 @@ export const syncAutomaticDebts = async (householdId, automaticDebts, existingDe
     // Filter existing auto debts
     const existingAutoDebts = existingDebts.filter(debt => debt.type === 'auto');
     
-    // Create a map of existing auto debts for quick lookup
+    // Create a map of existing auto debts for quick lookup (allow duplicates list)
     const existingAutoDebtMap = {};
     existingAutoDebts.forEach(debt => {
       const key = `${debt.debtor}:${debt.creditor}`;
-      existingAutoDebtMap[key] = debt;
+      if (!existingAutoDebtMap[key]) existingAutoDebtMap[key] = [];
+      existingAutoDebtMap[key].push(debt);
     });
     
     // Track which debts we've processed
@@ -131,7 +139,23 @@ export const syncAutomaticDebts = async (householdId, automaticDebts, existingDe
       const key = `${autoDebt.debtor}:${autoDebt.creditor}`;
       processedKeys.add(key);
       
-      const existingDebt = existingAutoDebtMap[key];
+      const existingList = existingAutoDebtMap[key] || [];
+      // If duplicates exist, keep the most recent one and delete the rest
+      if (existingList.length > 1) {
+        // Sort by createdAt desc if available, else by id to get deterministic order
+        const sorted = [...existingList].sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        });
+        const [keep, ...duplicates] = sorted;
+        for (const dup of duplicates) {
+          const dupRef = doc(debtsRef, dup.id);
+          batch.delete(dupRef);
+        }
+        existingAutoDebtMap[key] = [keep];
+      }
+      const existingDebt = (existingAutoDebtMap[key] || [])[0];
       
       if (existingDebt) {
         // Update existing auto debt if amount changed
@@ -145,7 +169,9 @@ export const syncAutomaticDebts = async (householdId, automaticDebts, existingDe
         }
       } else {
         // Create new auto debt
-        const newDebtRef = doc(debtsRef);
+        // Use deterministic ID to avoid duplicates from concurrent runs
+        const deterministicId = `auto_${autoDebt.debtor}_${autoDebt.creditor}`;
+        const newDebtRef = doc(debtsRef, deterministicId);
         batch.set(newDebtRef, {
           debtor: autoDebt.debtor,
           creditor: autoDebt.creditor,
