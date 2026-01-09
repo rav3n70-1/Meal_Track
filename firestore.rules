@@ -50,17 +50,25 @@ service cloud.firestore {
       
       // Members subcollection
       match /members/{memberId} {
-        // ✅ FIXED: Anyone authenticated can read member list (needed to check capacity before joining)
-        // This allows checking member count before joining household
-        allow read: if isSignedIn();
+        // Household members can read all members in their household
+        // This is needed for:
+        // - Displaying member lists in expenses, bills, etc.
+        // - Managers need phone numbers (mobileNumber) for WhatsApp messaging
+        // Note: Phone numbers are visible to all household members
+        //       This is acceptable for a household management app where members
+        //       may need to contact each other
+        allow read: if isMember(householdId);
         
         // New members can add themselves (when joining via invite code)
         // Managers can add/update any member
         allow create: if isSignedIn() && 
                         (request.auth.uid == memberId || isManager(householdId));
         
-        // Members can update their own profile
-        // Managers can update any member
+        // Members can update their own profile (including phone number)
+        // Managers can update any member (including phone numbers)
+        // This allows:
+        // - Members to add/update their own phone number in Profile page
+        // - Managers to add/update phone numbers in Member Management modal
         allow update: if isSignedIn() && 
                         (request.auth.uid == memberId || isManager(householdId));
         

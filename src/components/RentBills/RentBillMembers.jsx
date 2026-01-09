@@ -1,25 +1,37 @@
 // Component for managing rent-only members
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Edit2, Trash2, Mail, User } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, Mail, User, Phone, MessageSquare } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
+import SendWhatsAppModal from '../WhatsApp/SendWhatsAppModal';
 import { useRentBills } from '../../context/RentBillsContext';
+import { useHousehold } from '../../context/HouseholdContext';
 import toast from 'react-hot-toast';
 
 const RentBillMembers = () => {
   const { rentBillMembers, addRentBillMember, updateRentBillMember, removeRentBillMember, getMemberRentBills } = useRentBills();
+  const { members } = useHousehold();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showSendMessageModal, setShowSendMessageModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [selectedMembersForMessage, setSelectedMembersForMessage] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Combine all members (household + rent-only) for messaging
+  const allMembers = [
+    ...members.map(m => ({ ...m, isRentOnly: false })),
+    ...rentBillMembers.map(m => ({ ...m, isRentOnly: true }))
+  ];
   const [formData, setFormData] = useState({
     email: '',
     name: '',
-    nickname: ''
+    nickname: '',
+    mobileNumber: ''
   });
 
   const handleAddMember = async (e) => {
@@ -42,17 +54,25 @@ const RentBillMembers = () => {
       // The member doesn't need to login - this is just for record keeping
       const memberId = 'rentmember_' + formData.email.replace(/[@.]/g, '_').toLowerCase();
       
+      // Validate phone number if provided
+      if (formData.mobileNumber && !/^[\d\s\-\+\(\)]+$/.test(formData.mobileNumber.trim())) {
+        toast.error('Please enter a valid phone number');
+        setLoading(false);
+        return;
+      }
+
       await addRentBillMember({
         uid: memberId,
         email: formData.email,
         name: formData.name,
         nickname: formData.nickname,
+        mobileNumber: formData.mobileNumber.trim() || null,
         isRentOnly: true
       });
 
       toast.success('Rent-only member added successfully');
       setShowAddModal(false);
-      setFormData({ email: '', name: '', nickname: '' });
+      setFormData({ email: '', name: '', nickname: '', mobileNumber: '' });
     } catch (error) {
       toast.error(error.message || 'Failed to add member');
     } finally {
@@ -66,15 +86,23 @@ const RentBillMembers = () => {
     setLoading(true);
 
     try {
+      // Validate phone number if provided
+      if (formData.mobileNumber && !/^[\d\s\-\+\(\)]+$/.test(formData.mobileNumber.trim())) {
+        toast.error('Please enter a valid phone number');
+        setLoading(false);
+        return;
+      }
+
       await updateRentBillMember(selectedMember.uid, {
         name: formData.name,
-        nickname: formData.nickname
+        nickname: formData.nickname,
+        mobileNumber: formData.mobileNumber.trim() || null
       });
 
       toast.success('Member updated successfully');
       setShowEditModal(false);
       setSelectedMember(null);
-      setFormData({ email: '', name: '', nickname: '' });
+      setFormData({ email: '', name: '', nickname: '', mobileNumber: '' });
     } catch (error) {
       toast.error(error.message || 'Failed to update member');
     } finally {
@@ -107,9 +135,19 @@ const RentBillMembers = () => {
     setFormData({
       email: member.email,
       name: member.name,
-      nickname: member.nickname || ''
+      nickname: member.nickname || '',
+      mobileNumber: member.mobileNumber || ''
     });
     setShowEditModal(true);
+  };
+
+  const handleSendMessage = (member = null) => {
+    if (member) {
+      setSelectedMembersForMessage([member]);
+    } else {
+      setSelectedMembersForMessage([]);
+    }
+    setShowSendMessageModal(true);
   };
 
   return (
@@ -117,12 +155,21 @@ const RentBillMembers = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Rent-Only Members</h2>
-        <Button
-          onClick={() => setShowAddModal(true)}
-          icon={<UserPlus size={18} />}
-        >
-          Add Member
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => handleSendMessage()}
+            icon={<MessageSquare size={18} />}
+          >
+            Send Message
+          </Button>
+          <Button
+            onClick={() => setShowAddModal(true)}
+            icon={<UserPlus size={18} />}
+          >
+            Add Member
+          </Button>
+        </div>
       </div>
 
       {/* Members List */}
@@ -166,6 +213,12 @@ const RentBillMembers = () => {
                               <Mail size={14} />
                               {member.email}
                             </p>
+                            {member.mobileNumber && (
+                              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Phone size={14} />
+                                {member.mobileNumber}
+                              </p>
+                            )}
                           </div>
                           <Badge variant="primary">Rent Only</Badge>
                         </div>
@@ -192,6 +245,17 @@ const RentBillMembers = () => {
 
                       {/* Actions */}
                       <div className="flex sm:flex-col gap-2">
+                        {member.mobileNumber && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSendMessage(member)}
+                            icon={<MessageSquare size={16} />}
+                            title="Send WhatsApp message"
+                          >
+                            Message
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
@@ -223,7 +287,7 @@ const RentBillMembers = () => {
         isOpen={showAddModal}
         onClose={() => {
           setShowAddModal(false);
-          setFormData({ email: '', name: '', nickname: '' });
+          setFormData({ email: '', name: '', nickname: '', mobileNumber: '' });
         }}
         title="Add Rent-Only Member"
         size="md"
@@ -262,6 +326,18 @@ const RentBillMembers = () => {
             placeholder="Johnny"
           />
 
+          <Input
+            label="Mobile Number (Optional)"
+            type="tel"
+            value={formData.mobileNumber}
+            onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })}
+            placeholder="+880 1XXX-XXXXXX or 01XXX-XXXXXX"
+            icon={<Phone size={18} />}
+          />
+          <p className="text-xs text-muted-foreground">
+            Used for WhatsApp notifications about bills and payments
+          </p>
+
           <div className="flex gap-3 pt-4">
             <Button
               type="submit"
@@ -275,7 +351,7 @@ const RentBillMembers = () => {
               variant="outline"
               onClick={() => {
                 setShowAddModal(false);
-                setFormData({ email: '', name: '', nickname: '' });
+                setFormData({ email: '', name: '', nickname: '', mobileNumber: '' });
               }}
               disabled={loading}
             >
@@ -291,7 +367,7 @@ const RentBillMembers = () => {
         onClose={() => {
           setShowEditModal(false);
           setSelectedMember(null);
-          setFormData({ email: '', name: '', nickname: '' });
+          setFormData({ email: '', name: '', nickname: '', mobileNumber: '' });
         }}
         title="Edit Member"
         size="md"
@@ -322,6 +398,18 @@ const RentBillMembers = () => {
             placeholder="Johnny"
           />
 
+          <Input
+            label="Mobile Number (Optional)"
+            type="tel"
+            value={formData.mobileNumber}
+            onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })}
+            placeholder="+880 1XXX-XXXXXX or 01XXX-XXXXXX"
+            icon={<Phone size={18} />}
+          />
+          <p className="text-xs text-muted-foreground">
+            Used for WhatsApp notifications about bills and payments
+          </p>
+
           <div className="flex gap-3 pt-4">
             <Button
               type="submit"
@@ -336,7 +424,7 @@ const RentBillMembers = () => {
               onClick={() => {
                 setShowEditModal(false);
                 setSelectedMember(null);
-                setFormData({ email: '', name: '', nickname: '' });
+                setFormData({ email: '', name: '', nickname: '', mobileNumber: '' });
               }}
               disabled={loading}
             >
@@ -345,6 +433,17 @@ const RentBillMembers = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Send WhatsApp Message Modal */}
+      <SendWhatsAppModal
+        isOpen={showSendMessageModal}
+        onClose={() => {
+          setShowSendMessageModal(false);
+          setSelectedMembersForMessage([]);
+        }}
+        members={allMembers}
+        selectedMembers={selectedMembersForMessage}
+      />
     </div>
   );
 };

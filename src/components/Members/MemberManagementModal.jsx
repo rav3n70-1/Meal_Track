@@ -1,7 +1,7 @@
 // Modal component for managing member information (manager only)
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Crown, Save, X } from 'lucide-react';
+import { User, Mail, Crown, Save, X, Phone } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
@@ -13,7 +13,8 @@ const MemberManagementModal = ({ isOpen, onClose, member, onSave }) => {
     name: '',
     email: '',
     nickname: '',
-    role: 'member'
+    role: 'member',
+    mobileNumber: ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -24,14 +25,16 @@ const MemberManagementModal = ({ isOpen, onClose, member, onSave }) => {
         name: member.name || '',
         email: member.email || '',
         nickname: member.nickname || '',
-        role: member.role || 'member'
+        role: member.role || 'member',
+        mobileNumber: member.mobileNumber || ''
       });
     } else {
       setFormData({
         name: '',
         email: '',
         nickname: '',
-        role: 'member'
+        role: 'member',
+        mobileNumber: ''
       });
     }
   }, [member]);
@@ -58,13 +61,20 @@ const MemberManagementModal = ({ isOpen, onClose, member, onSave }) => {
       return;
     }
 
+    // Validate phone number if provided
+    if (formData.mobileNumber && !/^[\d\s\-\+\(\)]+$/.test(formData.mobileNumber.trim())) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+
     setSaving(true);
     try {
       await onSave({
         ...formData,
         name: formData.name.trim(),
         email: formData.email.trim(),
-        nickname: formData.nickname.trim()
+        nickname: formData.nickname.trim(),
+        mobileNumber: formData.mobileNumber.trim() || null
       });
       onClose();
     } catch (error) {
@@ -139,6 +149,24 @@ const MemberManagementModal = ({ isOpen, onClose, member, onSave }) => {
           />
           <p className="text-xs text-muted-foreground mt-1">
             If set, nickname will be displayed instead of full name
+          </p>
+        </div>
+
+        {/* Mobile Number Field */}
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Mobile Number <span className="text-muted-foreground text-xs">(Optional)</span>
+          </label>
+          <Input
+            type="tel"
+            name="mobileNumber"
+            value={formData.mobileNumber}
+            onChange={handleChange}
+            placeholder="+880 1XXX-XXXXXX or 01XXX-XXXXXX"
+            icon={<Phone size={18} />}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Used for WhatsApp notifications about bills and payments
           </p>
         </div>
 

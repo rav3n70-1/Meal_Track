@@ -1,11 +1,12 @@
 // User Profile page with balance management
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Calendar, Award, TrendingUp, TrendingDown, Edit } from 'lucide-react';
+import { User, Mail, Calendar, Award, TrendingUp, TrendingDown, Edit, Phone } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
 import NicknameModal from '../components/ui/NicknameModal';
 import { useAuth } from '../context/AuthContext';
 import { useHousehold } from '../context/HouseholdContext';
@@ -13,6 +14,9 @@ import { useLanguage } from '../context/LanguageContext';
 import { calculateBalances, getExpenseTotalAmount } from '../utils/calculations';
 import { getDisplayName, getFullName } from '../utils/displayName';
 import Loading from '../components/ui/Loading';
+import { updateDoc, doc } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import toast from 'react-hot-toast';
 
 const Profile = () => {
   const { currentUser, userProfile } = useAuth();
@@ -20,6 +24,9 @@ const Profile = () => {
   const { t } = useLanguage();
   const role = getUserRole();
   const [showNicknameModal, setShowNicknameModal] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
 
   // Get current member data (includes nickname)
   const currentMember = useMemo(() => {
@@ -41,6 +48,41 @@ const Profile = () => {
 
   const myApprovedExpenses = myExpenses.filter(exp => exp.status === 'approved');
   const myPendingExpenses = myExpenses.filter(exp => exp.status === 'pending');
+
+  // Load phone number from member data
+  useEffect(() => {
+    if (currentMember?.mobileNumber) {
+      setPhoneNumber(currentMember.mobileNumber);
+    } else {
+      setPhoneNumber('');
+    }
+  }, [currentMember]);
+
+  const handleSavePhoneNumber = async () => {
+    if (!household || !currentUser) return;
+
+    // Validate phone number if provided
+    if (phoneNumber && !/^[\d\s\-\+\(\)]+$/.test(phoneNumber.trim())) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+
+    setSavingPhone(true);
+    try {
+      const memberRef = doc(db, 'households', household.id, 'members', currentUser.uid);
+      await updateDoc(memberRef, {
+        mobileNumber: phoneNumber.trim() || null,
+        updatedAt: new Date().toISOString()
+      });
+      setEditingPhone(false);
+      toast.success('Phone number updated successfully');
+    } catch (error) {
+      toast.error('Failed to update phone number');
+      console.error(error);
+    } finally {
+      setSavingPhone(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -119,6 +161,52 @@ const Profile = () => {
                   <div className="flex items-center gap-2 mt-2">
                     <Mail size={16} className="text-muted-foreground" />
                     <p className="text-muted-foreground">{currentUser?.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Phone size={16} className="text-muted-foreground" />
+                    {editingPhone ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Input
+                          type="tel"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          placeholder="+880 1XXX-XXXXXX or 01XXX-XXXXXX"
+                          className="flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleSavePhoneNumber}
+                          disabled={savingPhone}
+                        >
+                          {savingPhone ? 'Saving...' : 'Save'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingPhone(false);
+                            setPhoneNumber(currentMember?.mobileNumber || '');
+                          }}
+                          disabled={savingPhone}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-1">
+                        <p className="text-muted-foreground">
+                          {currentMember?.mobileNumber || 'No phone number'}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingPhone(true)}
+                          icon={<Edit size={14} />}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

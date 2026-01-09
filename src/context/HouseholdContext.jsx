@@ -117,12 +117,16 @@ export const HouseholdProvider = ({ children }) => {
       const householdId = householdDoc.id;
 
       // Check if household is full (max 10 members)
+      // NOTE: Removed this check because non-members cannot read the members list due to security rules.
+      // If we need this limit, it should be enforced via Cloud Functions or by adding a memberCount field to the household doc.
+      /*
       const membersRef = collection(db, 'households', householdId, 'members');
       const membersSnap = await getDocs(membersRef);
       
       if (membersSnap.size >= 10) {
         throw new Error('Household is full (maximum 10 members)');
       }
+      */
 
       // Add user as member
       const memberRef = doc(db, 'households', householdId, 'members', currentUser.uid);

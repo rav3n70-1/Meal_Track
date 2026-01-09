@@ -15,6 +15,7 @@ import {
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
 import { useHousehold } from './HouseholdContext';
+import { sendBillCreationWhatsApp, sendPaymentReceivedWhatsApp } from '../utils/whatsappService';
 
 const RentBillsContext = createContext();
 
@@ -28,10 +29,18 @@ export const useRentBills = () => {
 
 export const RentBillsProvider = ({ children }) => {
   const { currentUser } = useAuth();
-  const { household, getUserRole } = useHousehold();
+  const { household, getUserRole, members } = useHousehold();
   const [rentBillMembers, setRentBillMembers] = useState([]);
   const [rentBills, setRentBills] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Helper to get all members (household + rent-only)
+  const getAllMembers = () => {
+    return [
+      ...members.map(m => ({ ...m, isRentOnly: false })),
+      ...rentBillMembers.map(m => ({ ...m, isRentOnly: true }))
+    ];
+  };
 
   // Check if current user is a rent-only member (always false now - rent members are just records)
   const isRentOnlyMember = () => {
@@ -51,6 +60,7 @@ export const RentBillsProvider = ({ children }) => {
         email: memberData.email,
         name: memberData.name || memberData.email.split('@')[0],
         nickname: memberData.nickname || '',
+        mobileNumber: memberData.mobileNumber || null,
         isRentOnly: true,
         createdBy: currentUser.uid,
         createdAt: serverTimestamp(),
@@ -102,13 +112,39 @@ export const RentBillsProvider = ({ children }) => {
 
     try {
       const billsRef = collection(db, 'households', household.id, 'rentBills');
-      await addDoc(billsRef, {
+      const billDocRef = await addDoc(billsRef, {
         ...billData,
         householdId: household.id,
         createdBy: currentUser.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+
+      // Send WhatsApp notifications to members with their individual amounts
+      if (billData.memberCategoryAmounts) {
+        const allMembers = getAllMembers();
+        const membersWithAmounts = allMembers.filter(member => {
+          const memberAmounts = billData.memberCategoryAmounts[member.uid];
+          if (!memberAmounts) return false;
+          const total = Object.values(memberAmounts).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0);
+          return total > 0;
+        });
+
+        // Send WhatsApp to each member asynchronously (don't wait for all to complete)
+        membersWithAmounts.forEach(async (member) => {
+          try {
+            const memberAmounts = billData.memberCategoryAmounts[member.uid];
+            const memberTotal = Object.values(memberAmounts).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0);
+            
+            if (member.mobileNumber) {
+              await sendBillCreationWhatsApp(member, { ...billData, id: billDocRef.id }, memberTotal);
+            }
+          } catch (error) {
+            // Log error but don't fail bill creation if WhatsApp fails
+            console.error(`Failed to send WhatsApp to ${member.name}:`, error);
+          }
+        });
+      }
     } catch (error) {
       throw error;
     }
@@ -235,6 +271,41 @@ export const RentBillsProvider = ({ children }) => {
         });
         
         updateData.memberCategoryPayments = mergedPayments;
+
+        // Send WhatsApp notifications to members who made payments
+        const allMembers = getAllMembers();
+
+        Object.entries(memberCategoryPayments).forEach(async ([memberId, categories]) => {
+          try {
+            const member = allMembers.find(m => m.uid === memberId);
+            if (!member || !member.mobileNumber) return;
+
+            // Calculate total payment for this member
+            const memberPaymentTotal = Object.values(categories).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0);
+            if (memberPaymentTotal <= 0) return;
+
+            // Calculate member's total due amount
+            const memberAmounts = bill.memberCategoryAmounts?.[memberId] || {};
+            const memberTotalDue = Object.values(memberAmounts).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0);
+
+            // Calculate existing payments for this member (before this payment)
+            const existingMemberPayments = bill.memberCategoryPayments?.[memberId] || {};
+            const existingPaid = Object.values(existingMemberPayments).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0);
+
+            // Calculate new total paid (existing + new payment)
+            const newTotalPaid = existingPaid + memberPaymentTotal;
+
+            // Determine payment status
+            const paymentStatus = newTotalPaid >= memberTotalDue - 0.01 ? 'full' : 'partial';
+            const remainingAmount = Math.max(0, memberTotalDue - newTotalPaid);
+
+            // Send WhatsApp notification
+            await sendPaymentReceivedWhatsApp(member, bill, memberPaymentTotal, paymentStatus, remainingAmount);
+          } catch (error) {
+            // Log error but don't fail payment recording if WhatsApp fails
+            console.error(`Failed to send payment WhatsApp to member ${memberId}:`, error);
+          }
+        });
       }
 
       const billRef = doc(db, 'households', household.id, 'rentBills', billId);

@@ -1,0 +1,158 @@
+// Datasource and generator
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth base models
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  accounts      Account[]
+  sessions      Session[]
+
+  // App domain
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Optional profile fields migrated from Firestore
+  displayName   String?
+  householdId   String?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Domain models
+model Household {
+  id          String      @id @default(cuid())
+  name        String
+  inviteCode  String?     @unique
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  members     Member[]
+  expenses    Expense[]
+  debts       Debt[]
+  rentBills   RentBill[]
+  rentMembers RentBillMember[]
+}
+
+model Member {
+  id           String    @id @default(cuid())
+  householdId  String
+  userId       String
+  role         String     // e.g., 'manager' | 'member'
+  nickname     String?
+  createdAt    DateTime   @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+}
+
+model Expense {
+  id           String    @id @default(cuid())
+  householdId  String
+  createdById  String
+  amount       Decimal   @db.Decimal(12, 2)
+  date         DateTime
+  category     String?
+  notes        String?
+  createdAt    DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  creator   User      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+}
+
+model Debt {
+  id           String    @id @default(cuid())
+  householdId  String
+  fromUserId   String
+  toUserId     String
+  amount       Decimal   @db.Decimal(12, 2)
+  description  String?
+  createdAt    DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  fromUser  User      @relation("DebtFromUser", fields: [fromUserId], references: [id], onDelete: SetNull)
+  toUser    User      @relation("DebtToUser", fields: [toUserId], references: [id], onDelete: SetNull)
+}
+
+model RentBill {
+  id           String    @id @default(cuid())
+  householdId  String
+  month        Int
+  year         Int
+  totalAmount  Decimal   @db.Decimal(12, 2)
+  createdAt    DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+}
+
+model RentBillMember {
+  id           String   @id @default(cuid())
+  householdId  String
+  userId       String
+  shareAmount  Decimal  @db.Decimal(12, 2)
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+}
+
+model PersonalExpense {
+  id       String   @id @default(cuid())
+  userId   String
+  amount   Decimal  @db.Decimal(12, 2)
+  date     DateTime
+  note     String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+

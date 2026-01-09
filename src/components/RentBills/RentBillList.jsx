@@ -1,12 +1,13 @@
 // List component for displaying Rent and Bills
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Edit2, Trash2, DollarSign, Calendar, CheckCircle, AlertCircle, Clock, Wallet, Printer } from 'lucide-react';
+import { Edit2, Trash2, DollarSign, Calendar, CheckCircle, AlertCircle, Clock, Wallet, Printer, MessageSquare } from 'lucide-react';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import RentBillForm from './RentBillForm';
+import SendWhatsAppModal from '../WhatsApp/SendWhatsAppModal';
 import Input from '../ui/Input';
 import { useRentBills } from '../../context/RentBillsContext';
 import { useHousehold } from '../../context/HouseholdContext';
@@ -25,6 +26,9 @@ const RentBillList = ({ filterMemberId = null }) => {
   const [paymentAmounts, setPaymentAmounts] = useState({});
   const [paymentNotes, setPaymentNotes] = useState('');
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [showSendMessageModal, setShowSendMessageModal] = useState(false);
+  const [selectedMembersForMessage, setSelectedMembersForMessage] = useState([]);
+  const [selectedBillForMessage, setSelectedBillForMessage] = useState(null);
 
   const role = getUserRole();
   const isManager = role === 'manager';
@@ -73,6 +77,25 @@ const RentBillList = ({ filterMemberId = null }) => {
     ...members.map(m => ({ ...m, isRentOnly: false })),
     ...rentBillMembers.map(m => ({ ...m, isRentOnly: true }))
   ], [members, rentBillMembers]);
+
+  const handleSendMessage = (bill = null) => {
+    setSelectedBillForMessage(bill);
+    
+    if (bill) {
+      // Get all members associated with this bill
+      const billMembers = allMembers.filter(member => {
+        const memberAmounts = bill.memberCategoryAmounts?.[member.uid];
+        if (!memberAmounts) return false;
+        const total = Object.values(memberAmounts).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0);
+        return total > 0 && member.mobileNumber;
+      });
+      setSelectedMembersForMessage(billMembers);
+    } else {
+      setSelectedMembersForMessage([]);
+    }
+    
+    setShowSendMessageModal(true);
+  };
 
   const handlePayment = (bill) => {
     setSelectedBill(bill);
@@ -412,6 +435,15 @@ const RentBillList = ({ filterMemberId = null }) => {
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => handleSendMessage(bill)}
+                          icon={<MessageSquare size={16} />}
+                          title="Send WhatsApp message to bill members"
+                        >
+                          Message
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => generateBillSummaryPdf(bill, allMembers, household?.name)}
                           icon={<Printer size={16} />}
                         >
@@ -620,6 +652,18 @@ const RentBillList = ({ filterMemberId = null }) => {
         )}
       </Modal>
 
+      {/* Send WhatsApp Message Modal */}
+      <SendWhatsAppModal
+        isOpen={showSendMessageModal}
+        onClose={() => {
+          setShowSendMessageModal(false);
+          setSelectedMembersForMessage([]);
+          setSelectedBillForMessage(null);
+        }}
+        members={allMembers}
+        selectedMembers={selectedMembersForMessage}
+        bill={selectedBillForMessage}
+      />
     </div>
   );
 };

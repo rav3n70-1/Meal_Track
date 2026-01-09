@@ -1,12 +1,13 @@
 // Members page showing all household members
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Copy, Check, Mail, Crown, Edit, Trash2, UserPlus } from 'lucide-react';
+import { Users, Copy, Check, Mail, Crown, Edit, Trash2, UserPlus, Phone, MessageSquare } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import MemberManagementModal from '../components/Members/MemberManagementModal';
+import SendWhatsAppModal from '../components/WhatsApp/SendWhatsAppModal';
 import Modal from '../components/ui/Modal';
 import { useHousehold } from '../context/HouseholdContext';
 import { useAuth } from '../context/AuthContext';
@@ -21,7 +22,9 @@ const Members = () => {
   const [copied, setCopied] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [showSendMessageModal, setShowSendMessageModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [selectedMembersForMessage, setSelectedMembersForMessage] = useState([]);
 
   const handleCopyInviteCode = () => {
     if (household?.inviteCode) {
@@ -62,6 +65,15 @@ const Members = () => {
     } catch (error) {
       toast.error(error.message || 'Failed to remove member');
     }
+  };
+
+  const handleSendMessage = (member = null) => {
+    if (member) {
+      setSelectedMembersForMessage([member]);
+    } else {
+      setSelectedMembersForMessage([]);
+    }
+    setShowSendMessageModal(true);
   };
 
   if (loading) {
@@ -117,9 +129,20 @@ const Members = () => {
         {/* Members List */}
         <Card>
           <CardHeader>
-            <CardTitle>
-              Household Members ({members.length}/10)
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>
+                Household Members ({members.length}/10)
+              </CardTitle>
+              {role === 'manager' && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleSendMessage()}
+                  icon={<MessageSquare size={18} />}
+                >
+                  Send WhatsApp Message
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -169,6 +192,12 @@ const Members = () => {
                         <Mail size={14} />
                         {member.email}
                       </div>
+                      {member.mobileNumber && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                          <Phone size={14} />
+                          {member.mobileNumber}
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground mt-1">
                         Joined {new Date(member.joinedAt).toLocaleDateString()}
                       </p>
@@ -186,6 +215,17 @@ const Members = () => {
                     {/* Manager Controls */}
                     {role === 'manager' && (
                       <div className="flex items-center gap-2">
+                        {member.mobileNumber && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            icon={<MessageSquare size={16} />}
+                            onClick={() => handleSendMessage(member)}
+                            title="Send WhatsApp message"
+                          >
+                            Message
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -269,6 +309,17 @@ const Members = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Send WhatsApp Message Modal */}
+      <SendWhatsAppModal
+        isOpen={showSendMessageModal}
+        onClose={() => {
+          setShowSendMessageModal(false);
+          setSelectedMembersForMessage([]);
+        }}
+        members={members}
+        selectedMembers={selectedMembersForMessage}
+      />
     </Layout>
   );
 };
