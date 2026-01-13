@@ -1,12 +1,13 @@
 // Expenses page for viewing and adding expenses
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, LayoutList, Calendar as CalendarIcon } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import ExpenseForm from '../components/Expenses/ExpenseForm';
 import ExpenseList from '../components/Expenses/ExpenseList';
 import ExpenseDetails from '../components/Expenses/ExpenseDetails';
+import ExpenseCalendar from '../components/Expenses/ExpenseCalendar';
 import { useHousehold } from '../context/HouseholdContext';
 import Loading from '../components/ui/Loading';
 
@@ -16,6 +17,7 @@ const Expenses = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [expenseToEdit, setExpenseToEdit] = useState(null);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
 
   const handleEditExpense = (expense) => {
     setExpenseToEdit(expense);
@@ -52,11 +54,41 @@ const Expenses = () => {
           </Button>
         </div>
 
-        {/* Expense List */}
-        <ExpenseList 
-          expenses={expenses}
-          onExpenseClick={setSelectedExpense}
-        />
+        {/* View Toggle */}
+        <div className="flex gap-2 border-b border-border pb-1">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${viewMode === 'list'
+                ? 'border-primary text-primary font-medium'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            <LayoutList size={18} />
+            List
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${viewMode === 'calendar'
+                ? 'border-primary text-primary font-medium'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            <CalendarIcon size={18} />
+            Calendar
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="min-h-[400px]">
+          {viewMode === 'list' ? (
+            <ExpenseList
+              expenses={expenses}
+              onExpenseClick={setSelectedExpense}
+            />
+          ) : (
+            <ExpenseCalendar />
+          )}
+        </div>
       </div>
 
       {/* Add Expense Modal */}
@@ -107,4 +139,5 @@ const Expenses = () => {
 };
 
 export default Expenses;
+
 

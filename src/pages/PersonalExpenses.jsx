@@ -1,9 +1,9 @@
 // Personal Expenses page for tracking private expenses
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, Plus, Edit, Trash2, Calendar, Tag, DollarSign } from 'lucide-react';
+import { Wallet, Plus, LayoutList, Calendar as CalendarIcon, PieChart, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
-import Card, { CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import Card, { CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
@@ -14,13 +14,31 @@ import { useAuth } from '../context/AuthContext';
 import Loading from '../components/ui/Loading';
 import toast from 'react-hot-toast';
 
+// New Components
+import PersonalExpenseCalendar from '../components/PersonalExpenses/PersonalExpenseCalendar';
+import PersonalExpenseCharts from '../components/PersonalExpenses/PersonalExpenseCharts';
+import PersonalExpenseFilter from '../components/PersonalExpenses/PersonalExpenseFilter';
+import PersonalExpenseList from '../components/PersonalExpenses/PersonalExpenseList';
+
 const PersonalExpenses = () => {
   const { currentUser } = useAuth();
   const { personalExpenses, loading, addPersonalExpense, updatePersonalExpense, deletePersonalExpense } = usePersonalExpense();
+
+  // UI State
+  const [viewMode, setViewMode] = useState('list'); // 'list', 'calendar', 'charts'
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
+
+  // Filter State
+  const [filters, setFilters] = useState({
+    category: 'all',
+    startDate: '',
+    endDate: ''
+  });
+
+  // Form Data
   const [formData, setFormData] = useState({
     title: '',
     amount: '',
@@ -28,6 +46,23 @@ const PersonalExpenses = () => {
     date: new Date().toISOString().split('T')[0],
     description: ''
   });
+
+  // Recent Titles for Dropdown
+  const [recentTitles, setRecentTitles] = useState([]);
+
+  useEffect(() => {
+    const savedTitles = localStorage.getItem('recentExpenseTitles');
+    if (savedTitles) {
+      setRecentTitles(JSON.parse(savedTitles));
+    }
+  }, []);
+
+  const saveTitle = (title) => {
+    if (!title) return;
+    const newTitles = [...new Set([title, ...recentTitles])].slice(0, 20); // Keep last 20 unique titles
+    setRecentTitles(newTitles);
+    localStorage.setItem('recentExpenseTitles', JSON.stringify(newTitles));
+  };
 
   const categories = [
     { value: 'food', label: '🍔 Food' },
@@ -40,28 +75,54 @@ const PersonalExpenses = () => {
     { value: 'other', label: '📦 Other' }
   ];
 
+  const getCategoryLabel = (category) => {
+    const cat = categories.find(c => c.value === category);
+    return cat ? cat.label : category;
+  };
+
+  // Filter Logic
+  const filteredExpenses = useMemo(() => {
+    return personalExpenses.filter(expense => {
+      // Category Filter
+      if (filters.category !== 'all' && expense.category !== filters.category) {
+        return false;
+      }
+
+      // Date Range Filter
+      const expenseDate = new Date(expense.date);
+      if (filters.startDate) {
+        const start = new Date(filters.startDate);
+        if (expenseDate < start) return false;
+      }
+      if (filters.endDate) {
+        const end = new Date(filters.endDate);
+        if (expenseDate > end) return false;
+      }
+
+      return true;
+    });
+  }, [personalExpenses, filters]);
+
   // Calculate total
   const totalExpenses = useMemo(() => {
-    return personalExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount || 0), 0);
-  }, [personalExpenses]);
-
-  // Group expenses by month
-  const expensesByMonth = useMemo(() => {
-    const grouped = {};
-    personalExpenses.forEach(expense => {
-      const date = new Date(expense.date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (!grouped[monthKey]) {
-        grouped[monthKey] = [];
-      }
-      grouped[monthKey].push(expense);
-    });
-    return grouped;
-  }, [personalExpenses]);
+    return filteredExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount || 0), 0);
+  }, [filteredExpenses]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      category: 'all',
+      startDate: '',
+      endDate: ''
+    });
   };
 
   const resetForm = () => {
@@ -83,6 +144,7 @@ const PersonalExpenses = () => {
 
     try {
       await addPersonalExpense(formData);
+      saveTitle(formData.title.trim());
       toast.success('Personal expense added successfully!');
       resetForm();
       setShowAddModal(false);
@@ -112,6 +174,7 @@ const PersonalExpenses = () => {
 
     try {
       await updatePersonalExpense(selectedExpense.id, formData);
+      saveTitle(formData.title.trim());
       toast.success('Personal expense updated successfully!');
       resetForm();
       setShowEditModal(false);
@@ -137,11 +200,6 @@ const PersonalExpenses = () => {
     }
   };
 
-  const getCategoryLabel = (category) => {
-    const cat = categories.find(c => c.value === category);
-    return cat ? cat.label : category;
-  };
-
   if (loading) {
     return (
       <Layout>
@@ -156,7 +214,7 @@ const PersonalExpenses = () => {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">Personal Expenses</h1>
             <p className="text-muted-foreground">
@@ -179,7 +237,7 @@ const PersonalExpenses = () => {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Total Personal Expenses</p>
+                <p className="text-sm text-muted-foreground mb-1">Total Expenses (Filtered)</p>
                 <p className="text-3xl font-bold text-primary">৳{totalExpenses.toFixed(2)}</p>
               </div>
               <div className="p-4 bg-primary/20 rounded-full">
@@ -189,86 +247,67 @@ const PersonalExpenses = () => {
           </CardContent>
         </Card>
 
-        {/* Expenses List */}
-        {Object.keys(expensesByMonth).length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Wallet className="mx-auto text-muted-foreground mb-4" size={48} />
-              <p className="text-muted-foreground mb-4">No personal expenses yet</p>
-              <Button onClick={() => {
-                resetForm();
-                setShowAddModal(true);
-              }}>
-                Add Your First Expense
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          Object.entries(expensesByMonth).sort((a, b) => b[0].localeCompare(a[0])).map(([month, expenses]) => (
-            <Card key={month}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar size={20} />
-                  {new Date(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                  <span className="text-sm text-muted-foreground ml-auto">
-                    ৳{expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0).toFixed(2)}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {expenses.map((expense, index) => (
-                    <motion.div
-                      key={expense.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="flex items-center justify-between p-4 bg-accent rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold">{expense.title}</h3>
-                          <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
-                            {getCategoryLabel(expense.category)}
-                          </span>
-                        </div>
-                        {expense.description && (
-                          <p className="text-sm text-muted-foreground mb-1">{expense.description}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(expense.date).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <p className="text-lg font-bold text-primary">
-                          ৳{parseFloat(expense.amount).toFixed(2)}
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            icon={<Edit size={16} />}
-                            onClick={() => handleEdit(expense)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            icon={<Trash2 size={16} />}
-                            onClick={() => handleDelete(expense)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+        {/* Filters */}
+        <PersonalExpenseFilter
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onClearFilters={clearFilters}
+          categories={categories}
+        />
+
+        {/* View Tabs */}
+        <div className="flex gap-2 border-b border-border pb-1">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${viewMode === 'list'
+              ? 'border-primary text-primary font-medium'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            <LayoutList size={18} />
+            List
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${viewMode === 'calendar'
+              ? 'border-primary text-primary font-medium'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            <CalendarIcon size={18} />
+            Calendar
+          </button>
+          <button
+            onClick={() => setViewMode('charts')}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${viewMode === 'charts'
+              ? 'border-primary text-primary font-medium'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            <PieChart size={18} />
+            Analytics
+          </button>
+        </div>
+
+        {/* Content Area */}
+        <div className="min-h-[400px]">
+          {viewMode === 'list' && (
+            <PersonalExpenseList
+              expenses={filteredExpenses}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              getCategoryLabel={getCategoryLabel}
+            />
+          )}
+
+          {viewMode === 'calendar' && (
+            <PersonalExpenseCalendar />
+          )}
+
+          {viewMode === 'charts' && (
+            <PersonalExpenseCharts expenses={filteredExpenses} />
+          )}
+        </div>
       </div>
 
       {/* Add Modal */}
@@ -286,14 +325,27 @@ const PersonalExpenses = () => {
             <label className="block text-sm font-medium mb-2">
               Title <span className="text-red-500">*</span>
             </label>
-            <Input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              placeholder="e.g., Lunch at restaurant"
-              required
-            />
+            <div className="relative">
+              <input
+                list="title-options"
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="e.g., Lunch at restaurant"
+                className="w-full px-4 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                required
+                autoComplete="off"
+              />
+              <datalist id="title-options">
+                {recentTitles.map((title, index) => (
+                  <option key={index} value={title} />
+                ))}
+              </datalist>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Type to create new or select from recent
+            </p>
           </div>
 
           <div>
@@ -321,7 +373,6 @@ const PersonalExpenses = () => {
               value={formData.category}
               onChange={handleChange}
               options={categories}
-              icon={<Tag size={18} />}
             />
           </div>
 
@@ -381,14 +432,24 @@ const PersonalExpenses = () => {
             <label className="block text-sm font-medium mb-2">
               Title <span className="text-red-500">*</span>
             </label>
-            <Input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              placeholder="e.g., Lunch at restaurant"
-              required
-            />
+            <div className="relative">
+              <input
+                list="edit-title-options"
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="e.g., Lunch at restaurant"
+                className="w-full px-4 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                required
+                autoComplete="off"
+              />
+              <datalist id="edit-title-options">
+                {recentTitles.map((title, index) => (
+                  <option key={index} value={title} />
+                ))}
+              </datalist>
+            </div>
           </div>
 
           <div>
@@ -416,7 +477,6 @@ const PersonalExpenses = () => {
               value={formData.category}
               onChange={handleChange}
               options={categories}
-              icon={<Tag size={18} />}
             />
           </div>
 
@@ -502,4 +562,5 @@ const PersonalExpenses = () => {
 };
 
 export default PersonalExpenses;
+
 

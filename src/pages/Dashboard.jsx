@@ -135,39 +135,31 @@ const Dashboard = () => {
                   {t('myBalance')}
                 </h3>
                 <div className="space-y-1 text-sm text-muted-foreground">
-                  {myBalance.totalDebtCredit > 0 && (
-                    <p className="flex items-center gap-2">
-                      <span className="text-green-600 dark:text-green-400">
-                        Owed to you: ৳{myBalance.totalDebtCredit.toFixed(2)}
-                      </span>
-                    </p>
-                  )}
-                  {myBalance.totalDebtOwed > 0 && (
+                  {myBalance.totalDebtOwed > 0 ? (
                     <p className="flex items-center gap-2">
                       <span className="text-red-600 dark:text-red-400">
                         You owe: ৳{myBalance.totalDebtOwed.toFixed(2)}
                       </span>
                     </p>
-                  )}
-                  {myBalance.totalDebtCredit === 0 && myBalance.totalDebtOwed === 0 && (
+                  ) : (
                     <p className="text-muted-foreground">No active debts</p>
                   )}
                 </div>
               </div>
               <div className="flex flex-col items-end gap-3">
-                <motion.div 
+                <motion.div
                   className="text-3xl font-bold"
                   initial={{ scale: 0.5 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 200 }}
                 >
-                  {(myBalance.totalDebtCredit - myBalance.totalDebtOwed) >= 0 ? (
-                    <span className="text-green-600 dark:text-green-400">
-                      +৳{(myBalance.totalDebtCredit - myBalance.totalDebtOwed).toFixed(2)}
+                  {myBalance.totalDebtOwed > 0 ? (
+                    <span className="text-red-600 dark:text-red-400">
+                      -৳{myBalance.totalDebtOwed.toFixed(2)}
                     </span>
                   ) : (
-                    <span className="text-red-600 dark:text-red-400">
-                      ৳{(myBalance.totalDebtCredit - myBalance.totalDebtOwed).toFixed(2)}
+                    <span className="text-green-600 dark:text-green-400">
+                      ৳0.00
                     </span>
                   )}
                 </motion.div>
@@ -182,11 +174,9 @@ const Dashboard = () => {
               </div>
             </div>
             <p className="text-sm text-muted-foreground mt-3">
-              {(myBalance.totalDebtCredit - myBalance.totalDebtOwed) > 0 
-                ? 'Others owe you money'
-                : (myBalance.totalDebtCredit - myBalance.totalDebtOwed) < 0 
-                ? 'You owe money to others'
-                : 'All debts settled!'}
+              {myBalance.totalDebtOwed > 0
+                ? 'You have unsettled debts'
+                : 'All your debts are settled!'}
             </p>
           </motion.div>
         )}
