@@ -1,211 +1,32 @@
 // Utility functions for automatically generating debts from expenses
-import { collection, doc, setDoc, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, doc, writeBatch, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { roundUpSharedAmount, roundDebtToNearestTen } from './calculations';
+import { calculateBalances, calculateDebts } from './calculations';
 
 /**
  * Calculate automatic debts from approved expenses
  * Consolidates amounts owed between same people
- * @param {Array} expenses - Array of approved expenses
+ * @param {Array} expenses - Array of expenses
  * @param {Array} members - Array of household members
- * @returns {Array} Array of consolidated debt objects
+ * @returns {Array} Calculated debt objects
  */
-export const calculateAutomaticDebts = (expenses, members) => {
-  // Include approved expenses and legacy records where status is missing/truthy
-  // Exclude only explicit rejections
-  const approvedExpenses = expenses.filter(exp => {
-    const status = typeof exp.status === 'string' ? exp.status.toLowerCase() : exp.status;
-    if (status === 'rejected') return false;
-    if (status === 'approved' || status === true) return true;
-    // If status is pending, skip; if undefined (legacy), include
-    return typeof status === 'undefined';
-  });
-  
-  // Create a map to track net amounts owed between members
-  // Key: "debtor_uid:creditor_uid", Value: amount
-  const debtMap = {};
-  
-  approvedExpenses.forEach(expense => {
-    const sharedAmong = expense.sharedAmong || [];
-    
-    if (sharedAmong.length === 0) return;
-    
-    // Support both old format (single item) and new format (multiple items)
-    if (expense.items && Array.isArray(expense.items) && expense.items.length > 0) {
-      // New format: Multiple items, each with its own buyer and amount
-      expense.items.forEach(item => {
-        const itemAmount = parseFloat(item.amount) || 0;
-        const buyer = item.buyer;
-        
-                if (itemAmount <= 0 || !buyer) return;
+const calculateAutomaticDebts = (expenses, members) => {
+  // 1. Calculate balances based ONLY on expenses (pass empty debts array)
+  // This tells us who owes what purely based on consumption vs payment
+  const { memberBalances } = calculateBalances(expenses, members, []);
 
-        // Use rounded up share per person
-        const shareCalc = roundUpSharedAmount(itemAmount, sharedAmong.length);
-        const sharePerPerson = shareCalc.rounded;
+  // 2. Calculate simplified debts to settle these balances
+  const debts = calculateDebts(memberBalances);
 
-        // Each person in sharedAmong owes the buyer their share of this item
-        sharedAmong.forEach(memberId => {
-          // Skip if the buyer is also sharing (they don't owe themselves)
-          if (memberId === buyer) return;
-
-          const debtKey = `${memberId}:${buyer}`;
-
-          if (!debtMap[debtKey]) {
-            debtMap[debtKey] = 0;
-          }
-
-          debtMap[debtKey] += sharePerPerson;
-        });
-      });
-    } else {
-      // Old format: Single item with expense.amount and expense.buyer
-      const amount = parseFloat(expense.amount) || 0;
-      const buyer = expense.buyer;
-      
-            if (amount <= 0 || !buyer) return;
-
-      // Use rounded up share per person
-      const shareCalc = roundUpSharedAmount(amount, sharedAmong.length);
-      const sharePerPerson = shareCalc.rounded;
-
-      // Each person in sharedAmong owes the buyer their share
-      sharedAmong.forEach(memberId => {
-        // Skip if the buyer is also sharing (they don't owe themselves)
-        if (memberId === buyer) return;
-
-        const debtKey = `${memberId}:${buyer}`;
-
-        if (!debtMap[debtKey]) {
-          debtMap[debtKey] = 0;
-        }
-
-        debtMap[debtKey] += sharePerPerson;
-      });
-    }
-  });
-  
-  // Convert debt map to array of debt objects
-  const automaticDebts = [];
-  
-  Object.entries(debtMap).forEach(([key, amount]) => {
-    if (amount > 0.01) { // Only include debts over 1 cent
-      const [debtor, creditor] = key.split(':');
-
-      // Round debt amount to nearest 10
-      const debtRounding = roundDebtToNearestTen(amount);
-
-      automaticDebts.push({
-        debtor,
-        creditor,
-        amount: debtRounding.rounded, // Rounded to nearest 10
-        originalAmount: amount, // Keep original for calculation display
-        type: 'auto',
-        calculation: debtRounding.calculation
-      });
-    }
-  });
-  
-  return automaticDebts;
-};
-
-/**
- * Sync automatic debts to Firestore
- * Creates/updates automatic debt records based on expenses
- * @param {string} householdId - Household ID
- * @param {Array} automaticDebts - Array of automatic debt objects
- * @param {Array} existingDebts - Current debt records from Firestore
- */
-export const syncAutomaticDebts = async (householdId, automaticDebts, existingDebts) => {
-  try {
-    const debtsRef = collection(db, 'households', householdId, 'debts');
-    const batch = writeBatch(db);
-    
-    // Filter existing auto debts
-    const existingAutoDebts = existingDebts.filter(debt => debt.type === 'auto');
-    
-    // Create a map of existing auto debts for quick lookup (allow duplicates list)
-    const existingAutoDebtMap = {};
-    existingAutoDebts.forEach(debt => {
-      const key = `${debt.debtor}:${debt.creditor}`;
-      if (!existingAutoDebtMap[key]) existingAutoDebtMap[key] = [];
-      existingAutoDebtMap[key].push(debt);
-    });
-    
-    // Track which debts we've processed
-    const processedKeys = new Set();
-    
-    // Update or create automatic debts
-    for (const autoDebt of automaticDebts) {
-      const key = `${autoDebt.debtor}:${autoDebt.creditor}`;
-      processedKeys.add(key);
-      
-      const existingList = existingAutoDebtMap[key] || [];
-      // If duplicates exist, keep the most recent one and delete the rest
-      if (existingList.length > 1) {
-        // Sort by createdAt desc if available, else by id to get deterministic order
-        const sorted = [...existingList].sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        });
-        const [keep, ...duplicates] = sorted;
-        for (const dup of duplicates) {
-          const dupRef = doc(debtsRef, dup.id);
-          batch.delete(dupRef);
-        }
-        existingAutoDebtMap[key] = [keep];
-      }
-      const existingDebt = (existingAutoDebtMap[key] || [])[0];
-      
-      if (existingDebt) {
-        // Update existing auto debt if amount changed
-        if (Math.abs(existingDebt.remainingAmount - autoDebt.amount) > 0.01) {
-          const debtDocRef = doc(debtsRef, existingDebt.id);
-          batch.update(debtDocRef, {
-            originalAmount: autoDebt.amount,
-            remainingAmount: autoDebt.amount,
-            updatedAt: new Date().toISOString()
-          });
-        }
-      } else {
-        // Create new auto debt
-        // Use deterministic ID to avoid duplicates from concurrent runs
-        const deterministicId = `auto_${autoDebt.debtor}_${autoDebt.creditor}`;
-        const newDebtRef = doc(debtsRef, deterministicId);
-        batch.set(newDebtRef, {
-          debtor: autoDebt.debtor,
-          creditor: autoDebt.creditor,
-          originalAmount: autoDebt.amount,
-          remainingAmount: autoDebt.amount,
-          reason: 'Shared expenses',
-          date: new Date().toISOString().split('T')[0],
-          notes: 'Automatically generated from shared expenses',
-          status: 'approved', // Auto debts are automatically approved
-          type: 'auto',
-          payments: [],
-          createdAt: new Date().toISOString(),
-          createdBy: 'system',
-          approvedBy: 'system',
-          approvedAt: new Date().toISOString(),
-          paidAt: null
-        });
-      }
-    }
-    
-    // Delete auto debts that no longer exist (amount became 0 or expenses changed)
-    for (const existingDebt of existingAutoDebts) {
-      const key = `${existingDebt.debtor}:${existingDebt.creditor}`;
-      if (!processedKeys.has(key)) {
-        const debtDocRef = doc(debtsRef, existingDebt.id);
-        batch.delete(debtDocRef);
-      }
-    }
-    
-    // Commit all changes
-    await batch.commit();
-  } catch (error) {
-    throw error;
-  }
+  // 3. Format as debt objects
+  return debts.map(d => ({
+    from: d.from,
+    to: d.to,
+    amount: d.amount,
+    type: 'auto',
+    status: 'approved', // Auto debts are always approved
+    date: new Date().toISOString()
+  }));
 };
 
 /**
@@ -218,12 +39,101 @@ export const syncAutomaticDebts = async (householdId, automaticDebts, existingDe
  */
 export const updateAutomaticDebts = async (householdId, expenses, members, existingDebts) => {
   try {
-    // Calculate what automatic debts should exist
-    const automaticDebts = calculateAutomaticDebts(expenses, members);
-    
-    // Sync with Firestore
-    await syncAutomaticDebts(householdId, automaticDebts, existingDebts);
+    // Calculate what automatic debts should exist based on current expenses
+    const targetDebts = calculateAutomaticDebts(expenses, members);
+
+    // Filter existing debts to only include auto debts
+    const existingAutoDebts = existingDebts.filter(d => d.type === 'auto');
+
+    const batch = writeBatch(db);
+    const debtsRef = collection(db, 'households', householdId, 'debts');
+
+    // Track which existing debts have been handled
+    const handledDebtIds = new Set();
+
+    // 1. Update or Create debts based on target
+    targetDebts.forEach(target => {
+      // Find matching existing debt (same debtor and creditor)
+      const existing = existingAutoDebts.find(d =>
+        d.debtor === target.from &&
+        d.creditor === target.to
+      );
+
+      if (existing) {
+        handledDebtIds.add(existing.id);
+
+        // Calculate new remaining amount
+        // Start with new total amount
+        let newRemaining = target.amount;
+
+        // Subtract all valid payments made on this debt
+        if (existing.payments && Array.isArray(existing.payments)) {
+          const totalPaid = existing.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+          newRemaining = Math.max(0, target.amount - totalPaid);
+        }
+
+        // If amount changed or remaining amount needs update
+        if (Math.abs(existing.amount - target.amount) > 0.01 ||
+          Math.abs(existing.remainingAmount - newRemaining) > 0.01) {
+
+          const debtDoc = doc(debtsRef, existing.id);
+          batch.update(debtDoc, {
+            amount: target.amount,
+            remainingAmount: newRemaining,
+            updatedAt: new Date().toISOString(),
+            // If it was fully paid but now has more debt, set back to approved
+            status: newRemaining > 0.01 ? 'approved' : 'paid'
+          });
+        }
+      } else {
+        // Create new debt
+        const newDebtRef = doc(debtsRef);
+        batch.set(newDebtRef, {
+          debtor: target.from,
+          creditor: target.to,
+          amount: target.amount,
+          remainingAmount: target.amount, // No payments yet
+          type: 'auto',
+          status: 'approved',
+          date: target.date,
+          createdAt: new Date().toISOString(),
+          createdBy: 'system',
+          payments: []
+        });
+      }
+    });
+
+    // 2. Handle Orphans (existing auto debts that are no longer needed)
+    existingAutoDebts.forEach(existing => {
+      if (!handledDebtIds.has(existing.id)) {
+        const debtDoc = doc(debtsRef, existing.id);
+
+        // If it has payments, we can't just delete it
+        // Instead, set amount equal to what was paid (so remaining is 0)
+        if (existing.payments && existing.payments.length > 0) {
+          const totalPaid = existing.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+
+          // Only update if not already settled
+          if (Math.abs(existing.amount - totalPaid) > 0.01 || existing.remainingAmount > 0.01) {
+            batch.update(debtDoc, {
+              amount: totalPaid,
+              remainingAmount: 0,
+              status: 'paid',
+              updatedAt: new Date().toISOString(),
+              note: 'Auto-adjusted: Expenses changed, debt reduced to paid amount'
+            });
+          }
+        } else {
+          // No payments, safe to delete
+          batch.delete(debtDoc);
+        }
+      }
+    });
+
+    await batch.commit();
+
   } catch (error) {
+    console.error('Error syncing automatic debts:', error);
     throw error;
   }
 };

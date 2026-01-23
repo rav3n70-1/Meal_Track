@@ -1,11 +1,11 @@
 // Household Context for managing household data and members
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  setDoc, 
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
@@ -27,6 +27,7 @@ export const useHousehold = () => {
 };
 
 export const HouseholdProvider = ({ children }) => {
+  console.log('[Debug] HouseholdProvider rendering...');
   const { currentUser, userProfile, loadUserProfile } = useAuth();
   const [household, setHousehold] = useState(null);
   const [members, setMembers] = useState([]);
@@ -46,7 +47,7 @@ export const HouseholdProvider = ({ children }) => {
     try {
       const householdRef = doc(collection(db, 'households'));
       const inviteCode = generateInviteCode();
-      
+
       const householdData = {
         id: householdRef.id,
         name: householdName,
@@ -71,7 +72,7 @@ export const HouseholdProvider = ({ children }) => {
 
       // Update user profile with household ID
       const userRef = doc(db, 'users', currentUser.uid);
-      
+
       // Check if user document exists first
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
@@ -141,7 +142,7 @@ export const HouseholdProvider = ({ children }) => {
 
       // Update user profile with household ID
       const userRef = doc(db, 'users', currentUser.uid);
-      
+
       // Check if user document exists first
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
@@ -179,7 +180,7 @@ export const HouseholdProvider = ({ children }) => {
   // Update member information (manager only)
   const updateMember = async (memberId, updates) => {
     if (!currentUser || !household) throw new Error('Not authorized');
-    
+
     const role = getUserRole();
     if (role !== 'manager' && currentUser.uid !== memberId) {
       throw new Error('Only managers can update other members');
@@ -199,7 +200,7 @@ export const HouseholdProvider = ({ children }) => {
   // Remove member from household (manager only)
   const removeMember = async (memberId) => {
     if (!currentUser || !household) throw new Error('Not authorized');
-    
+
     const role = getUserRole();
     if (role !== 'manager') {
       throw new Error('Only managers can remove members');
@@ -265,7 +266,7 @@ export const HouseholdProvider = ({ children }) => {
     // Listen to members changes
     const membersRef = collection(db, 'households', householdId, 'members');
     const unsubscribeMembers = onSnapshot(
-      membersRef, 
+      membersRef,
       (snapshot) => {
         const membersData = snapshot.docs.map(doc => ({
           id: doc.id,
@@ -278,7 +279,7 @@ export const HouseholdProvider = ({ children }) => {
         if (!isStillMember) {
           // User has been removed from household - clear their householdId
           const userRef = doc(db, 'users', currentUser.uid);
-          updateDoc(userRef, { householdId: null }).catch(() => {});
+          updateDoc(userRef, { householdId: null }).catch(() => { });
           // Reload user profile to reflect the change
           loadUserProfile(currentUser.uid);
         }
@@ -287,7 +288,7 @@ export const HouseholdProvider = ({ children }) => {
         // If we get a permission error, user might have been removed
         if (error.code === 'permission-denied') {
           const userRef = doc(db, 'users', currentUser.uid);
-          updateDoc(userRef, { householdId: null }).catch(() => {});
+          updateDoc(userRef, { householdId: null }).catch(() => { });
           loadUserProfile(currentUser.uid);
         }
       }
@@ -329,13 +330,26 @@ export const HouseholdProvider = ({ children }) => {
 
   // Auto-generate debts from expenses whenever expenses or members change
   useEffect(() => {
-    if (!household || !members.length) return;
+    console.log('[Debug] Debt generation effect triggered');
+    console.log('[Debug] State:', {
+      householdId: household?.id,
+      membersCount: members?.length,
+      expensesCount: expenses?.length,
+      debtsCount: debts?.length
+    });
+
+    if (!household || !members.length) {
+      console.log('[Debug] Skipping: Missing household or members');
+      return;
+    }
 
     const generateDebts = async () => {
       try {
+        console.log('[Debug] Calling updateAutomaticDebts...');
         await updateAutomaticDebts(household.id, expenses, members, debts);
+        console.log('[Debug] updateAutomaticDebts completed');
       } catch (error) {
-        // Silently handle debt generation errors
+        console.error('[Debug] Error in generateDebts:', error);
       }
     };
 
@@ -348,7 +362,7 @@ export const HouseholdProvider = ({ children }) => {
   // Manual function to recalculate debts (can be called explicitly after expense deletion)
   const recalculateDebts = async () => {
     if (!household || !members.length) return;
-    
+
     try {
       await updateAutomaticDebts(household.id, expenses, members, debts);
     } catch (error) {

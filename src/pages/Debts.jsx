@@ -1,10 +1,12 @@
 // Debts page - manage personal debts and IOUs with approval system
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, Plus, CheckCircle, AlertCircle } from 'lucide-react';
+import { DollarSign, Plus, CheckCircle, AlertCircle, Calendar, List } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import StatsCard from '../components/Dashboard/StatsCard';
 import DebtList from '../components/Debts/DebtList';
+import DebtFilter from '../components/Debts/DebtFilter';
+import DebtCalendar from '../components/Debts/DebtCalendar';
 import PendingDebtApprovals from '../components/Debts/PendingDebtApprovals';
 import Modal from '../components/ui/Modal';
 import DebtForm from '../components/Debts/DebtForm';
@@ -20,19 +22,41 @@ const TakaIcon = ({ size = 24 }) => (
 
 const Debts = () => {
   const { currentUser } = useAuth();
-  const { debts, loading, getUserRole } = useHousehold();
+  const { debts, loading, getUserRole, members } = useHousehold();
   const [showAddDebt, setShowAddDebt] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
+  const [filter, setFilter] = useState({
+    search: '',
+    debtor: 'all',
+    creditor: 'all'
+  });
   const role = getUserRole();
 
   // Calculate debt statistics (filtered by role)
   const debtStats = useMemo(() => {
     // Filter debts based on role - same logic as DebtList
+    // Filter debts based on role - same logic as DebtList
     let visibleDebts = debts;
     if (role !== 'manager') {
       // Regular members only see debts involving them
-      visibleDebts = debts.filter(debt => 
+      visibleDebts = debts.filter(debt =>
         debt.debtor === currentUser?.uid || debt.creditor === currentUser?.uid
       );
+    }
+
+    // Apply UI filters
+    if (filter.search) {
+      const searchLower = filter.search.toLowerCase();
+      visibleDebts = visibleDebts.filter(debt =>
+        (debt.expenseTitle && debt.expenseTitle.toLowerCase().includes(searchLower)) ||
+        (debt.reason && debt.reason.toLowerCase().includes(searchLower))
+      );
+    }
+    if (filter.debtor !== 'all') {
+      visibleDebts = visibleDebts.filter(debt => debt.debtor === filter.debtor);
+    }
+    if (filter.creditor !== 'all') {
+      visibleDebts = visibleDebts.filter(debt => debt.creditor === filter.creditor);
     }
 
     const approvedDebts = visibleDebts.filter(debt => debt.status === 'approved');
@@ -55,7 +79,7 @@ const Debts = () => {
     const totalOwedToMe = debtsToMe.reduce((sum, debt) => sum + parseFloat(debt.remainingAmount || 0), 0);
 
     // Total active debt amount (for managers: all debts, for members: only their debts)
-    const totalActiveDebt = role === 'manager' 
+    const totalActiveDebt = role === 'manager'
       ? activeDebts.reduce((sum, debt) => sum + parseFloat(debt.remainingAmount || 0), 0)
       : totalIOwe + totalOwedToMe;
 
@@ -72,9 +96,10 @@ const Debts = () => {
       debtsToMe: debtsToMe.length,
       autoCount: activeAutoDebts.length,
       manualCount: activeManualDebts.length,
-      pendingManual: manualDebts.filter(d => d.status === 'pending').length
+      pendingManual: manualDebts.filter(d => d.status === 'pending').length,
+      filteredDebts: visibleDebts // Pass filtered debts to list/calendar
     };
-  }, [debts, currentUser, role]);
+  }, [debts, currentUser, role, filter]);
 
   if (loading) {
     return (
@@ -98,7 +123,7 @@ const Debts = () => {
           <div>
             <h1 className="text-3xl font-bold mb-2">Debt Management</h1>
             <p className="text-muted-foreground">
-              {role === 'manager' 
+              {role === 'manager'
                 ? 'Track all money owed between household members'
                 : 'Track your debts and money owed to you'}
             </p>
@@ -159,7 +184,7 @@ const Debts = () => {
                   {debtStats.myDebts} debt{debtStats.myDebts !== 1 ? 's' : ''}
                 </span>
               </div>
-              <motion.div 
+              <motion.div
                 className="text-3xl font-bold text-red-600 dark:text-red-400"
                 initial={{ scale: 0.5 }}
                 animate={{ scale: 1 }}
@@ -168,7 +193,7 @@ const Debts = () => {
                 ৳{debtStats.totalIOwe.toFixed(2)}
               </motion.div>
               <p className="text-sm text-muted-foreground">
-                {debtStats.myDebts > 0 
+                {debtStats.myDebts > 0
                   ? 'Money you need to pay back'
                   : 'You don\'t owe anyone! 🎉'}
               </p>
@@ -193,7 +218,7 @@ const Debts = () => {
                   {debtStats.debtsToMe} debt{debtStats.debtsToMe !== 1 ? 's' : ''}
                 </span>
               </div>
-              <motion.div 
+              <motion.div
                 className="text-3xl font-bold text-green-600 dark:text-green-400"
                 initial={{ scale: 0.5 }}
                 animate={{ scale: 1 }}
@@ -202,7 +227,7 @@ const Debts = () => {
                 ৳{debtStats.totalOwedToMe.toFixed(2)}
               </motion.div>
               <p className="text-sm text-muted-foreground">
-                {debtStats.debtsToMe > 0 
+                {debtStats.debtsToMe > 0
                   ? 'Money others will pay you'
                   : 'No one owes you money'}
               </p>
@@ -215,8 +240,48 @@ const Debts = () => {
           <PendingDebtApprovals debts={debts} />
         )}
 
-        {/* Debt List */}
-        <DebtList debts={debts} />
+        {/* View Controls & Filters */}
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Debt Records</h2>
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-md transition-all ${viewMode === 'list'
+                    ? 'bg-white dark:bg-gray-700 shadow-sm text-primary'
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                title="List View"
+              >
+                <List size={20} />
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`p-2 rounded-md transition-all ${viewMode === 'calendar'
+                    ? 'bg-white dark:bg-gray-700 shadow-sm text-primary'
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                title="Calendar View"
+              >
+                <Calendar size={20} />
+              </button>
+            </div>
+          </div>
+
+          <DebtFilter
+            filter={filter}
+            setFilter={setFilter}
+            members={members}
+            onClear={() => setFilter({ search: '', debtor: 'all', creditor: 'all' })}
+          />
+        </div>
+
+        {/* Debt List or Calendar */}
+        {viewMode === 'list' ? (
+          <DebtList debts={debtStats.filteredDebts} />
+        ) : (
+          <DebtCalendar debts={debtStats.filteredDebts} />
+        )}
 
         {/* Info Card */}
         <Card>

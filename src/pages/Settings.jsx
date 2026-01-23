@@ -10,7 +10,7 @@ import Loading from '../components/ui/Loading';
 
 const Settings = () => {
   const { currentUser } = useAuth();
-  const { household, members, getUserRole } = useHousehold();
+  const { household, members, getUserRole, recalculateDebts } = useHousehold();
   const { theme } = useTheme();
   const role = getUserRole();
 
@@ -195,6 +195,44 @@ const Settings = () => {
         <Card>
           <CardContent className="p-4 text-center text-sm text-muted-foreground">
             Meal Expense Tracker v1.0.0
+          </CardContent>
+        </Card>
+        {/* Danger Zone */}
+        <Card className="border-red-200 dark:border-red-900/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
+              <SettingsIcon size={24} />
+              Danger Zone
+            </CardTitle>
+            <CardDescription>
+              Advanced actions for troubleshooting
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-4 border border-red-100 dark:border-red-900/30 rounded-lg bg-red-50 dark:bg-red-900/10">
+              <div>
+                <h4 className="font-semibold text-red-700 dark:text-red-300">Recalculate Debts</h4>
+                <p className="text-sm text-red-600/80 dark:text-red-400/80">
+                  Manually trigger debt generation from expenses. Use this if debts are missing.
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  if (window.confirm('Are you sure? This will recalculate all debts based on current expenses.')) {
+                    try {
+                      await recalculateDebts();
+                      alert('Debts recalculated successfully!');
+                    } catch (error) {
+                      console.error(error);
+                      alert('Failed to recalculate debts.');
+                    }
+                  }
+                }}
+                className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm font-medium transition-colors dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-300"
+              >
+                Recalculate
+              </button>
+            </div>
           </CardContent>
         </Card>
       </div>
