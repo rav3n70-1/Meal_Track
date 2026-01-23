@@ -1,7 +1,7 @@
 // Utility functions for automatically generating debts from expenses
 import { collection, doc, writeBatch, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { calculateBalances, calculateDebts } from './calculations';
+import { calculatePairwiseDebts } from './calculations';
 
 /**
  * Calculate automatic debts from approved expenses
@@ -11,18 +11,18 @@ import { calculateBalances, calculateDebts } from './calculations';
  * @returns {Array} Calculated debt objects
  */
 const calculateAutomaticDebts = (expenses, members) => {
-  // 1. Calculate balances based ONLY on expenses (pass empty debts array)
-  // This tells us who owes what purely based on consumption vs payment
-  const { memberBalances } = calculateBalances(expenses, members, []);
+  // 1. Calculate pairwise debts directly from expenses
+  // This returns debts with { from, to, amount, expenseIds }
+  const debts = calculatePairwiseDebts(expenses, members);
 
-  // 2. Calculate simplified debts to settle these balances
-  const debts = calculateDebts(memberBalances);
+  console.log('[Debug] calculateAutomaticDebts result:', debts.length, 'debts');
 
-  // 3. Format as debt objects
+  // 2. Format as debt objects
   return debts.map(d => ({
     from: d.from,
     to: d.to,
     amount: d.amount,
+    expenseIds: d.expenseIds, // Store contributing expenses
     type: 'auto',
     status: 'approved', // Auto debts are always approved
     date: new Date().toISOString()
@@ -80,6 +80,7 @@ export const updateAutomaticDebts = async (householdId, expenses, members, exist
           batch.update(debtDoc, {
             amount: target.amount,
             remainingAmount: newRemaining,
+            expenseIds: target.expenseIds || [], // Update contributing expenses
             updatedAt: new Date().toISOString(),
             // If it was fully paid but now has more debt, set back to approved
             status: newRemaining > 0.01 ? 'approved' : 'paid'
@@ -92,7 +93,9 @@ export const updateAutomaticDebts = async (householdId, expenses, members, exist
           debtor: target.from,
           creditor: target.to,
           amount: target.amount,
-          remainingAmount: target.amount, // No payments yet
+          originalAmount: target.amount,
+          remainingAmount: target.amount,
+          expenseIds: target.expenseIds || [], // Save contributing expenses
           type: 'auto',
           status: 'approved',
           date: target.date,

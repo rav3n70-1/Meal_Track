@@ -331,11 +331,11 @@ export const HouseholdProvider = ({ children }) => {
   // Auto-generate debts from expenses whenever expenses or members change
   useEffect(() => {
     console.log('[Debug] Debt generation effect triggered');
-    console.log('[Debug] State:', {
-      householdId: household?.id,
-      membersCount: members?.length,
+    console.log('[Debug] Inputs:', {
       expensesCount: expenses?.length,
-      debtsCount: debts?.length
+      membersCount: members?.length,
+      expensesHash: expenses?.map(e => e.id).join(','),
+      membersHash: members?.map(m => m.uid).join(',')
     });
 
     if (!household || !members.length) {
@@ -357,7 +357,8 @@ export const HouseholdProvider = ({ children }) => {
     const timeoutId = setTimeout(generateDebts, 1000);
 
     return () => clearTimeout(timeoutId);
-  }, [expenses, members, household, debts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenses, members]);
 
   // Manual function to recalculate debts (can be called explicitly after expense deletion)
   const recalculateDebts = async () => {

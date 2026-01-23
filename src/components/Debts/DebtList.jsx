@@ -4,11 +4,11 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { 
-  ArrowRight, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+import {
+  ArrowRight,
+  CheckCircle,
+  XCircle,
+  Clock,
   DollarSign,
   Calendar,
   Zap,
@@ -56,7 +56,7 @@ const DebtList = ({ debts }) => {
     if (filter === 'owed-to-me') {
       return debt.creditor === currentUser?.uid;
     }
-    
+
     // 'all' filter - depends on role
     if (role === 'manager') {
       // Managers see ALL debts
@@ -130,11 +130,11 @@ const DebtList = ({ debts }) => {
         <CardContent className="text-center py-8">
           <CheckCircle className="mx-auto mb-4 text-green-500" size={48} />
           <p className="text-muted-foreground">
-            {filter === 'my-debts' 
+            {filter === 'my-debts'
               ? "You don't have any active debts! 🎉"
               : filter === 'owed-to-me'
-              ? "No one owes you money! 🎉"
-              : "No debt records found"}
+                ? "No one owes you money! 🎉"
+                : "No debt records found"}
           </p>
         </CardContent>
       </Card>
@@ -176,12 +176,12 @@ const DebtList = ({ debts }) => {
           {filteredDebts.map((debt, index) => {
             const debtor = memberLookup[debt.debtor];
             const creditor = memberLookup[debt.creditor];
-            
+
             // Calculate actual remaining amount from payments (more reliable than stored value)
             const existingPayments = Array.isArray(debt.payments) ? debt.payments : [];
             const totalPaid = existingPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
             const actualRemaining = Math.max(0, (debt.originalAmount || 0) - totalPaid);
-            const percentPaid = debt.originalAmount > 0 
+            const percentPaid = debt.originalAmount > 0
               ? ((totalPaid / debt.originalAmount) * 100)
               : 0;
             const isMyDebt = debt.debtor === currentUser?.uid;
@@ -250,7 +250,7 @@ const DebtList = ({ debts }) => {
                 <div className="bg-accent rounded-lg p-3 space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Original Amount:</span>
-                    <span className="font-bold text-primary">৳{debt.originalAmount.toFixed(2)}</span>
+                    <span className="font-bold text-primary">৳{(debt.originalAmount || debt.amount || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Remaining:</span>
@@ -275,11 +275,10 @@ const DebtList = ({ debts }) => {
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          percentPaid === 100 
-                            ? 'bg-green-600' 
-                            : 'bg-gradient-to-r from-yellow-500 to-primary'
-                        }`}
+                        className={`h-full rounded-full transition-all duration-500 ${percentPaid === 100
+                          ? 'bg-green-600'
+                          : 'bg-gradient-to-r from-yellow-500 to-primary'
+                          }`}
                         style={{ width: `${Math.min(100, Math.max(0, percentPaid))}%` }}
                       />
                     </div>
@@ -294,7 +293,7 @@ const DebtList = ({ debts }) => {
                     </p>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {debt.payments.map((payment, idx) => (
-                        <div 
+                        <div
                           key={idx}
                           className="text-xs bg-muted/50 rounded px-2 py-1 flex justify-between items-center"
                         >
@@ -313,25 +312,25 @@ const DebtList = ({ debts }) => {
                 {/* Action Buttons */}
                 <div className="flex gap-2 flex-wrap">
                   {/* Record Payment - Managers can record for any debt, debtors can record for their own */}
-                  {actualRemaining > 0 && debt.status === 'approved' && 
-                   (isMyDebt || role === 'manager') && (
-                    <Button 
-                      size="sm" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePaymentClick(debt);
-                      }}
-                      icon={<DollarSign size={16} />}
-                      className="flex-1 min-w-[140px]"
-                    >
-                      Record Payment
-                    </Button>
-                  )}
-                  
+                  {actualRemaining > 0 && debt.status === 'approved' &&
+                    (isMyDebt || role === 'manager') && (
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePaymentClick(debt);
+                        }}
+                        icon={<DollarSign size={16} />}
+                        className="flex-1 min-w-[140px]"
+                      >
+                        Record Payment
+                      </Button>
+                    )}
+
                   {/* Edit - Managers can edit any debt */}
                   {role === 'manager' && (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -342,11 +341,11 @@ const DebtList = ({ debts }) => {
                       Edit
                     </Button>
                   )}
-                  
+
                   {/* Delete - Managers can delete any debt */}
                   {role === 'manager' && (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -358,7 +357,7 @@ const DebtList = ({ debts }) => {
                     </Button>
                   )}
                 </div>
-                
+
                 {/* Info for auto debts */}
                 {debt.type === 'auto' && debt.status === 'approved' && (
                   <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-muted-foreground">

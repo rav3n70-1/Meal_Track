@@ -1,19 +1,20 @@
 // Debts page - manage personal debts and IOUs with approval system
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, Plus, CheckCircle, AlertCircle, Calendar, List } from 'lucide-react';
+import { DollarSign, Plus, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import StatsCard from '../components/Dashboard/StatsCard';
-import DebtList from '../components/Debts/DebtList';
-import DebtFilter from '../components/Debts/DebtFilter';
-import DebtCalendar from '../components/Debts/DebtCalendar';
 import PendingDebtApprovals from '../components/Debts/PendingDebtApprovals';
 import Modal from '../components/ui/Modal';
 import DebtForm from '../components/Debts/DebtForm';
+import MemberDebtCard from '../components/Debts/MemberDebtCard';
+import DebtBreakdownModal from '../components/Debts/DebtBreakdownModal';
 import { useHousehold } from '../context/HouseholdContext';
 import { useAuth } from '../context/AuthContext';
+import { calculateBalances } from '../utils/calculations';
 import Loading from '../components/ui/Loading';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import DebtPaymentForm from '../components/Debts/DebtPaymentForm';
 
 // Custom Taka Icon Component
 const TakaIcon = ({ size = 24 }) => (
@@ -22,51 +23,24 @@ const TakaIcon = ({ size = 24 }) => (
 
 const Debts = () => {
   const { currentUser } = useAuth();
-  const { debts, loading, getUserRole, members } = useHousehold();
+  const { debts, loading, getUserRole, members, expenses } = useHousehold();
   const [showAddDebt, setShowAddDebt] = useState(false);
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
-  const [filter, setFilter] = useState({
-    search: '',
-    debtor: 'all',
-    creditor: 'all'
-  });
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [debtToSettle, setDebtToSettle] = useState(null);
   const role = getUserRole();
 
-  // Calculate debt statistics (filtered by role)
+  // Calculate balances and stats
+  const { memberBalances, grandTotal } = useMemo(() => {
+    return calculateBalances(expenses, members, debts);
+  }, [expenses, members, debts]);
+
   const debtStats = useMemo(() => {
-    // Filter debts based on role - same logic as DebtList
-    // Filter debts based on role - same logic as DebtList
-    let visibleDebts = debts;
-    if (role !== 'manager') {
-      // Regular members only see debts involving them
-      visibleDebts = debts.filter(debt =>
-        debt.debtor === currentUser?.uid || debt.creditor === currentUser?.uid
-      );
-    }
-
-    // Apply UI filters
-    if (filter.search) {
-      const searchLower = filter.search.toLowerCase();
-      visibleDebts = visibleDebts.filter(debt =>
-        (debt.expenseTitle && debt.expenseTitle.toLowerCase().includes(searchLower)) ||
-        (debt.reason && debt.reason.toLowerCase().includes(searchLower))
-      );
-    }
-    if (filter.debtor !== 'all') {
-      visibleDebts = visibleDebts.filter(debt => debt.debtor === filter.debtor);
-    }
-    if (filter.creditor !== 'all') {
-      visibleDebts = visibleDebts.filter(debt => debt.creditor === filter.creditor);
-    }
-
-    const approvedDebts = visibleDebts.filter(debt => debt.status === 'approved');
-    const pendingDebts = visibleDebts.filter(debt => debt.status === 'pending');
+    const approvedDebts = debts.filter(debt => debt.status === 'approved');
+    const pendingDebts = debts.filter(debt => debt.status === 'pending');
     const activeDebts = approvedDebts.filter(debt => debt.remainingAmount > 0);
-    const paidDebts = visibleDebts.filter(debt => debt.status === 'paid' || debt.remainingAmount === 0);
+    const paidDebts = debts.filter(debt => debt.status === 'paid' || debt.remainingAmount === 0);
 
     // Separate auto and manual debts
-    const autoDebts = visibleDebts.filter(debt => debt.type === 'auto');
-    const manualDebts = visibleDebts.filter(debt => debt.type === 'manual');
     const activeAutoDebts = activeDebts.filter(debt => debt.type === 'auto');
     const activeManualDebts = activeDebts.filter(debt => debt.type === 'manual');
 
@@ -78,28 +52,29 @@ const Debts = () => {
     const debtsToMe = activeDebts.filter(debt => debt.creditor === currentUser?.uid);
     const totalOwedToMe = debtsToMe.reduce((sum, debt) => sum + parseFloat(debt.remainingAmount || 0), 0);
 
-    // Total active debt amount (for managers: all debts, for members: only their debts)
-    const totalActiveDebt = role === 'manager'
-      ? activeDebts.reduce((sum, debt) => sum + parseFloat(debt.remainingAmount || 0), 0)
-      : totalIOwe + totalOwedToMe;
+    // Total active debt amount (sum of all remaining amounts)
+    const totalActiveDebt = activeDebts.reduce((sum, debt) => sum + parseFloat(debt.remainingAmount || 0), 0);
 
     return {
-      total: visibleDebts.length,
-      approved: approvedDebts.length,
-      pending: pendingDebts.length,
       active: activeDebts.length,
       paid: paidDebts.length,
       totalIOwe,
       totalOwedToMe,
       totalActiveDebt,
-      myDebts: myDebts.length,
-      debtsToMe: debtsToMe.length,
       autoCount: activeAutoDebts.length,
       manualCount: activeManualDebts.length,
-      pendingManual: manualDebts.filter(d => d.status === 'pending').length,
-      filteredDebts: visibleDebts // Pass filtered debts to list/calendar
+      pendingManual: pendingDebts.length,
     };
-  }, [debts, currentUser, role, filter]);
+  }, [debts, currentUser]);
+
+  const handleMemberClick = (member) => {
+    setSelectedMember(member);
+  };
+
+  const handleSettleDebt = (debt) => {
+    setDebtToSettle(debt);
+    // Keep the breakdown modal open underneath
+  };
 
   if (loading) {
     return (
@@ -180,9 +155,6 @@ const Debts = () => {
                   <AlertCircle className="text-red-500" size={20} />
                   I Owe
                 </h3>
-                <span className="text-xs bg-red-500/20 text-red-600 dark:text-red-400 px-2 py-1 rounded-full">
-                  {debtStats.myDebts} debt{debtStats.myDebts !== 1 ? 's' : ''}
-                </span>
               </div>
               <motion.div
                 className="text-3xl font-bold text-red-600 dark:text-red-400"
@@ -193,7 +165,7 @@ const Debts = () => {
                 ৳{debtStats.totalIOwe.toFixed(2)}
               </motion.div>
               <p className="text-sm text-muted-foreground">
-                {debtStats.myDebts > 0
+                {debtStats.totalIOwe > 0
                   ? 'Money you need to pay back'
                   : 'You don\'t owe anyone! 🎉'}
               </p>
@@ -214,9 +186,6 @@ const Debts = () => {
                   <CheckCircle className="text-green-500" size={20} />
                   Owed to Me
                 </h3>
-                <span className="text-xs bg-green-500/20 text-green-600 dark:text-green-400 px-2 py-1 rounded-full">
-                  {debtStats.debtsToMe} debt{debtStats.debtsToMe !== 1 ? 's' : ''}
-                </span>
               </div>
               <motion.div
                 className="text-3xl font-bold text-green-600 dark:text-green-400"
@@ -227,7 +196,7 @@ const Debts = () => {
                 ৳{debtStats.totalOwedToMe.toFixed(2)}
               </motion.div>
               <p className="text-sm text-muted-foreground">
-                {debtStats.debtsToMe > 0
+                {debtStats.totalOwedToMe > 0
                   ? 'Money others will pay you'
                   : 'No one owes you money'}
               </p>
@@ -240,48 +209,23 @@ const Debts = () => {
           <PendingDebtApprovals debts={debts} />
         )}
 
-        {/* View Controls & Filters */}
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Debt Records</h2>
-            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-md transition-all ${viewMode === 'list'
-                    ? 'bg-white dark:bg-gray-700 shadow-sm text-primary'
-                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                title="List View"
-              >
-                <List size={20} />
-              </button>
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={`p-2 rounded-md transition-all ${viewMode === 'calendar'
-                    ? 'bg-white dark:bg-gray-700 shadow-sm text-primary'
-                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                title="Calendar View"
-              >
-                <Calendar size={20} />
-              </button>
-            </div>
+        {/* Member Grid */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Info size={20} className="text-primary" />
+            Member Balances
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {members.map(member => (
+              <MemberDebtCard
+                key={member.uid}
+                member={member}
+                balanceData={memberBalances[member.uid]}
+                onClick={() => handleMemberClick(member)}
+              />
+            ))}
           </div>
-
-          <DebtFilter
-            filter={filter}
-            setFilter={setFilter}
-            members={members}
-            onClear={() => setFilter({ search: '', debtor: 'all', creditor: 'all' })}
-          />
         </div>
-
-        {/* Debt List or Calendar */}
-        {viewMode === 'list' ? (
-          <DebtList debts={debtStats.filteredDebts} />
-        ) : (
-          <DebtCalendar debts={debtStats.filteredDebts} />
-        )}
 
         {/* Info Card */}
         <Card>
@@ -295,20 +239,16 @@ const Debts = () => {
             <div>
               <p className="font-medium text-foreground mb-1">Automatic Debts (from Expenses):</p>
               <p>• <strong>Auto-Generated:</strong> Created automatically when expenses are approved</p>
-              <p>• <strong>No Approval Needed:</strong> These debts are immediately active</p>
-              <p>• <strong>Based on Consumption:</strong> Calculated from shared expenses you consumed but others paid for</p>
+              <p>• <strong>Pairwise Calculation:</strong> Debts are calculated directly between the payer and the consumer</p>
             </div>
             <div>
               <p className="font-medium text-foreground mb-1">Manual Debts (Personal IOUs):</p>
               <p>• <strong>Create Manually:</strong> Use the "+" button to record personal loans between members</p>
-              <p>• <strong>Manager Approval:</strong> Manual debt records need manager approval to become active</p>
-              <p>• <strong>For Any Purpose:</strong> Borrowed money, personal loans, etc.</p>
             </div>
             <div>
               <p className="font-medium text-foreground mb-1">Payment & Balance:</p>
               <p>• <strong>Track Payments:</strong> Record payments as they are made to reduce any debt</p>
-              <p>• <strong>Auto-Update Balance:</strong> Your balance automatically includes both types of debts</p>
-              <p>• <strong>Celebrate Completion:</strong> Get a congratulations message when you fully pay off a debt! 🎉</p>
+              <p>• <strong>Click a Member:</strong> Click on any member card above to see detailed breakdown and settle debts</p>
             </div>
           </CardContent>
         </Card>
@@ -338,6 +278,34 @@ const Debts = () => {
           onSuccess={() => setShowAddDebt(false)}
           onCancel={() => setShowAddDebt(false)}
         />
+      </Modal>
+
+      {/* Debt Breakdown Modal */}
+      <DebtBreakdownModal
+        isOpen={!!selectedMember}
+        onClose={() => setSelectedMember(null)}
+        member={selectedMember}
+        debts={debts}
+        expenses={expenses}
+        members={members}
+        onSettle={handleSettleDebt}
+        currentUserId={currentUser?.uid}
+      />
+
+      {/* Settle Debt Modal (Payment Form) */}
+      <Modal
+        isOpen={!!debtToSettle}
+        onClose={() => setDebtToSettle(null)}
+        title="Record Debt Payment"
+        size="md"
+      >
+        {debtToSettle && (
+          <DebtPaymentForm
+            debt={debtToSettle}
+            onSuccess={() => setDebtToSettle(null)}
+            onCancel={() => setDebtToSettle(null)}
+          />
+        )}
       </Modal>
     </Layout>
   );

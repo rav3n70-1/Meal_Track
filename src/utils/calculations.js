@@ -34,11 +34,11 @@ export const roundUpSharedAmount = (amount, numberOfPeople) => {
       calculation: `৳${amount.toFixed(2)} ÷ ${numberOfPeople} = ৳0.00 per person`
     };
   }
-  
+
   const exact = amount / numberOfPeople;
   const rounded = Math.round(exact / 10) * 10; // Round to nearest 10 (same as debt rounding)
   const difference = rounded - exact;
-  
+
   return {
     exact,
     rounded,
@@ -55,12 +55,231 @@ Rounded to nearest 10: ৳${rounded.toFixed(2)}`
  */
 export const roundDebtToNearestTen = (amount) => {
   const rounded = Math.round(amount / 10) * 10;
-  
+
   return {
     original: amount,
     rounded,
     calculation: `৳${amount.toFixed(2)} rounded to nearest 10 = ৳${rounded.toFixed(2)}`
   };
+};
+
+/**
+ * Calculate Pairwise Debts from Expenses
+ * This determines who owes whom based on direct interactions in expenses.
+ * It does NOT simplify transitively (A->B->C != A->C), preserving social relationships.
+ * 
+ * @param {Array} expenses - List of approved expenses
+ * @param {Array} members - List of members
+ * @returns {Array} List of debt objects { from, to, amount, expenseIds }
+ */
+export const calculatePairwiseDebts = (expenses, members) => {
+  // Map to store net flow between pairs: "uid1_uid2" -> amount (positive means uid1 owes uid2)
+  // We always store with key where uid1 < uid2 alphabetically to handle direction
+  const pairBalances = {};
+  const pairExpenses = {}; // "uid1_uid2" -> Set of expense IDs
+
+  const getPairKey = (id1, id2) => {
+    if (id1 < id2) return `${id1}_${id2}`;
+    return `${id2}_${id1}`;
+  };
+
+  const updateBalance = (debtor, creditor, amount, expenseId) => {
+    if (debtor === creditor) return; // You can't owe yourself
+
+    const key = getPairKey(debtor, creditor);
+    if (!pairBalances[key]) pairBalances[key] = 0;
+    if (!pairExpenses[key]) pairExpenses[key] = new Set();
+
+    // If key is "A_B" and debtor is A, creditor is B: A owes B.
+    // We define positive value as "First ID owes Second ID"
+    // If debtor < creditor (matches key order): Add to balance
+    // If debtor > creditor (inverse key order): Subtract from balance
+    if (debtor < creditor) {
+      pairBalances[key] += amount;
+    } else {
+      pairBalances[key] -= amount;
+    }
+
+    pairExpenses[key].add(expenseId);
+  };
+
+  // Process each expense
+  expenses.forEach(expense => {
+    if (expense.status !== 'approved') return;
+
+    const items = expense.items || [{ name: expense.item, amount: expense.amount, buyer: expense.buyer }];
+
+    items.forEach(item => {
+      const buyer = item.buyer;
+      const amount = parseFloat(item.amount) || 0;
+      const sharedAmong = expense.sharedAmong || [];
+
+      if (!buyer || !amount || sharedAmong.length === 0) return;
+
+      // Calculate share per person
+      const { rounded: shareAmount } = roundUpSharedAmount(amount, sharedAmong.length);
+
+      // Each person in sharedAmong owes the buyer their share
+      sharedAmong.forEach(consumer => {
+        if (consumer !== buyer) {
+          updateBalance(consumer, buyer, shareAmount, expense.id);
+        }
+      });
+    });
+  });
+
+  // Convert pair balances to debt objects
+  const debts = [];
+  Object.entries(pairBalances).forEach(([key, netAmount]) => {
+    const [id1, id2] = key.split('_');
+    const expenseIds = Array.from(pairExpenses[key] || []);
+
+    if (Math.abs(netAmount) > 0.01) {
+      if (netAmount > 0) {
+        // id1 owes id2
+        debts.push({
+          from: id1,
+          to: id2,
+          amount: parseFloat(netAmount.toFixed(2)),
+          expenseIds
+        });
+      } else {
+        // id2 owes id1 (negative balance)
+        debts.push({
+          from: id2,
+          to: id1,
+          amount: parseFloat(Math.abs(netAmount).toFixed(2)),
+          expenseIds
+        });
+      }
+    }
+  });
+
+  return debts;
+};
+
+/**
+ * Calculate balance summary for all household members
+ * Uses the pairwise debts to determine net positions.
+ * @param {Array} expenses - Array of approved expenses
+ * @param {Array} members - Array of household members
+ * @param {Array} manualDebts - Array of manual debts (optional)
+ * @returns {Object} Balance summary with totals and individual balances
+ */
+export const calculateBalances = (expenses, members, providedDebts = []) => {
+  let allDebts = [];
+
+  // Check if providedDebts contains auto debts (indicating it's the full list from Firestore)
+  const hasAutoDebts = providedDebts.some(d => d.type === 'auto');
+
+  if (hasAutoDebts) {
+    // Use providedDebts as the single source of truth
+    allDebts = providedDebts
+      .filter(d => d.status === 'approved')
+      .map(d => ({
+        from: d.debtor, // Firestore uses debtor/creditor
+        to: d.creditor,
+        amount: parseFloat(d.originalAmount || d.amount || 0),
+        payments: d.payments || [],
+        type: d.type || 'manual', // Preserve type
+        expenseIds: d.expenseIds || []
+      }));
+  } else {
+    // Legacy/Fallback: Calculate auto debts from expenses + manual debts
+    // 1. Get Auto Debts from expenses
+    const autoDebts = calculatePairwiseDebts(expenses, members);
+
+    // 2. Combine with Manual Debts (only approved ones)
+    allDebts = [
+      ...autoDebts.map(d => ({ ...d, type: 'auto' })),
+      ...providedDebts.filter(d => d.status === 'approved').map(d => ({
+        from: d.debtor,
+        to: d.creditor,
+        amount: parseFloat(d.originalAmount || d.amount || 0),
+        payments: d.payments || [],
+        type: 'manual'
+      }))
+    ];
+  }
+
+  // Initialize member balances
+  const memberBalances = {};
+  members.forEach(member => {
+    memberBalances[member.uid] = {
+      name: getDisplayName(member),
+      photoURL: member.photoURL,
+      totalPaid: 0, // Total spent on expenses
+      totalShare: 0, // Total value consumed
+      totalDebtOwed: 0, // Net amount I owe
+      totalDebtCredit: 0, // Net amount owed to me
+      balance: 0
+    };
+  });
+
+  // Calculate Total Paid and Total Share (Consumption) from expenses
+  // This is for statistics, not for debt calculation (which is done pairwise above)
+  expenses.forEach(expense => {
+    if (expense.status !== 'approved') return;
+
+    const items = expense.items || [{ amount: expense.amount, buyer: expense.buyer }];
+    items.forEach(item => {
+      const amt = parseFloat(item.amount) || 0;
+      if (memberBalances[item.buyer]) {
+        memberBalances[item.buyer].totalPaid += amt;
+      }
+
+      const sharedAmong = expense.sharedAmong || [];
+      if (sharedAmong.length > 0) {
+        const { rounded: share } = roundUpSharedAmount(amt, sharedAmong.length);
+        sharedAmong.forEach(uid => {
+          if (memberBalances[uid]) {
+            memberBalances[uid].totalShare += share;
+          }
+        });
+      }
+    });
+  });
+
+  // Calculate Net Debts considering Payments
+  // We need to track the *remaining* amount for each debt
+  allDebts.forEach(debt => {
+    let remaining = debt.amount;
+
+    // Subtract payments if any (Manual debts usually have payments array)
+    // Auto debts in this calculation are "fresh" from expenses, so they don't have payments attached yet
+    // UNLESS we passed in existing auto debts, but here we recalculated them from scratch.
+    // The `manualDebts` passed in might have payments.
+    if (debt.payments && Array.isArray(debt.payments)) {
+      const paid = debt.payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+      remaining = Math.max(0, remaining - paid);
+    }
+
+    if (remaining > 0.01) {
+      if (memberBalances[debt.from]) {
+        memberBalances[debt.from].totalDebtOwed += remaining;
+      }
+      if (memberBalances[debt.to]) {
+        memberBalances[debt.to].totalDebtCredit += remaining;
+      }
+    }
+  });
+
+  // Final Balance
+  Object.values(memberBalances).forEach(mb => {
+    mb.balance = mb.totalDebtCredit - mb.totalDebtOwed;
+  });
+
+  return {
+    memberBalances,
+    grandTotal: Object.values(memberBalances).reduce((sum, m) => sum + m.totalPaid, 0)
+  };
+};
+
+// Legacy export for compatibility if needed, but calculatePairwiseDebts is preferred
+export const calculateDebts = (memberBalances) => {
+  // This is no longer used by the new logic but kept to avoid breaking imports
+  // It returns empty array as we don't use net-balance simplification anymore
+  return [];
 };
 
 // Helper: map of buyerUid -> total paid for a given expense (supports items per buyer)
@@ -117,175 +336,6 @@ export const getContributionsByMember = (expenses, members, debts = []) => {
     result[uid] = { name, totalPaid: value };
   });
   return result;
-};
-
-/**
- * Calculate balance summary for all household members
- * @param {Array} expenses - Array of approved expenses
- * @param {Array} members - Array of household members
- * @param {Array} debts - Array of approved debts (optional)
- * @returns {Object} Balance summary with totals and individual balances
- */
-export const calculateBalances = (expenses, members, debts = []) => {
-  // Filter only approved expenses
-  const approvedExpenses = expenses.filter(exp => exp.status === 'approved');
-
-  // Initialize member balances
-  const memberBalances = {};
-  members.forEach(member => {
-    memberBalances[member.uid] = {
-      name: getDisplayName(member),
-      fullName: member.name,
-      email: member.email,
-      photoURL: member.photoURL,
-      nickname: member.nickname,
-      totalPaid: 0,
-      totalShare: 0,
-      totalDebtOwed: 0, // Money they owe to others
-      totalDebtCredit: 0, // Money others owe to them
-      balance: 0,
-      expenseCount: 0,
-      debtCount: 0
-    };
-  });
-
-  // Calculate totals
-  let grandTotal = 0;
-
-  approvedExpenses.forEach(expense => {
-    const amount = getExpenseTotalAmount(expense);
-    grandTotal += amount;
-
-    // Add to buyer(s) total paid
-    const buyerPayments = getBuyerPaymentsForExpense(expense);
-    Object.entries(buyerPayments).forEach(([buyerId, buyerAmount]) => {
-      if (memberBalances[buyerId]) {
-        memberBalances[buyerId].totalPaid += buyerAmount;
-        memberBalances[buyerId].expenseCount += 1;
-      }
-    });
-
-    // Calculate share per person (rounded up)
-    const sharedAmong = expense.sharedAmong || [];
-    let sharePerPerson = 0;
-    if (sharedAmong.length > 0) {
-      const shareCalc = roundUpSharedAmount(amount, sharedAmong.length);
-      sharePerPerson = shareCalc.rounded; // Use rounded up amount
-    }
-
-    // Add to each person's share
-    sharedAmong.forEach(memberId => {
-      if (memberBalances[memberId]) {
-        memberBalances[memberId].totalShare += sharePerPerson;
-      }
-    });
-  });
-
-  // Adjust totals with debt payments: when a debtor pays, it counts as their Total Paid
-  // and reduces the creditor's Total Paid accordingly (shifts contribution)
-  if (Array.isArray(debts)) {
-    debts
-      .filter(d => d.status !== 'rejected')
-      .forEach(debt => {
-        const creditorId = debt?.creditor;
-        const payments = Array.isArray(debt?.payments) ? debt.payments : [];
-        payments.forEach(payment => {
-          const paidBy = payment?.paidBy;
-          const amount = parseFloat(payment?.amount) || 0;
-          if (!amount) return;
-          if (paidBy && memberBalances[paidBy]) {
-            memberBalances[paidBy].totalPaid += amount;
-          }
-          if (creditorId && memberBalances[creditorId]) {
-            memberBalances[creditorId].totalPaid -= amount;
-          }
-        });
-      });
-  }
-
-  // Calculate debt balances (only approved and not fully paid debts)
-  const activeDebts = debts.filter(debt => debt.status === 'approved' && debt.remainingAmount > 0);
-  
-  activeDebts.forEach(debt => {
-    const remainingAmount = parseFloat(debt.remainingAmount) || 0;
-    
-    // Debtor owes money (negative impact on balance)
-    if (memberBalances[debt.debtor]) {
-      memberBalances[debt.debtor].totalDebtOwed += remainingAmount;
-      memberBalances[debt.debtor].debtCount += 1;
-    }
-    
-    // Creditor is owed money (positive impact on balance)
-    if (memberBalances[debt.creditor]) {
-      memberBalances[debt.creditor].totalDebtCredit += remainingAmount;
-    }
-  });
-
-  // Calculate final balance for each member
-  Object.keys(memberBalances).forEach(uid => {
-    // Balance = (money paid - share of expenses) + (money owed to you - money you owe)
-    memberBalances[uid].balance = 
-      memberBalances[uid].totalPaid 
-      - memberBalances[uid].totalShare 
-      + memberBalances[uid].totalDebtCredit 
-      - memberBalances[uid].totalDebtOwed;
-  });
-
-  return {
-    grandTotal,
-    memberBalances
-  };
-};
-
-/**
- * Calculate who owes whom
- * @param {Object} memberBalances - Member balances from calculateBalances
- * @returns {Array} Array of debt relationships
- */
-export const calculateDebts = (memberBalances) => {
-  const debts = [];
-  
-  // Separate creditors (positive balance) and debtors (negative balance)
-  const creditors = [];
-  const debtors = [];
-
-  Object.entries(memberBalances).forEach(([uid, data]) => {
-    if (data.balance > 0.01) { // Small threshold for floating point errors
-      creditors.push({ uid, ...data });
-    } else if (data.balance < -0.01) {
-      debtors.push({ uid, ...data });
-    }
-  });
-
-  // Sort by absolute balance
-  creditors.sort((a, b) => b.balance - a.balance);
-  debtors.sort((a, b) => a.balance - b.balance);
-
-  // Calculate settlements
-  let i = 0, j = 0;
-  while (i < creditors.length && j < debtors.length) {
-    const creditor = creditors[i];
-    const debtor = debtors[j];
-    const amount = Math.min(creditor.balance, Math.abs(debtor.balance));
-
-    if (amount > 0.01) {
-      debts.push({
-        from: debtor.uid,
-        fromName: debtor.name,
-        to: creditor.uid,
-        toName: creditor.name,
-        amount: Math.round(amount * 100) / 100 // Round to 2 decimal places
-      });
-    }
-
-    creditor.balance -= amount;
-    debtor.balance += amount;
-
-    if (creditor.balance < 0.01) i++;
-    if (Math.abs(debtor.balance) < 0.01) j++;
-  }
-
-  return debts;
 };
 
 /**
@@ -382,4 +432,3 @@ export const groupExpensesByDate = (expenses, groupBy = 'day') => {
     amount: Math.round(amount * 100) / 100
   }));
 };
-
