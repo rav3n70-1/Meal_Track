@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 
 // -----------------------------------------------------------------------------
 // Internal Helper Functions
@@ -49,6 +50,97 @@ const _drawPdfFooter = (doc, margin, textLine1, textLine2 = 'Developed by: Mehed
 // -----------------------------------------------------------------------------
 
 // (Removed exportToExcel, exportBalancesToExcel, and exportToCSV)
+
+/**
+ * Export expenses to an Excel workbook.
+ * @param {Array<object>} expenses - Expense list.
+ * @param {Array<object>} members - Household members for display name lookups.
+ * @param {string} [householdName='household'] - Household name for file naming.
+ */
+export const exportExpensesToExcel = (
+  expenses = [],
+  members = [],
+  householdName = 'household'
+) => {
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const safeMembers = Array.isArray(members) ? members : [];
+
+  if (safeExpenses.length === 0) {
+    throw new Error('No expenses available to export');
+  }
+
+  const memberLookup = safeMembers.reduce((lookup, member) => {
+    lookup[member.uid] = member?.name || member?.displayName || member?.email || member?.uid || 'Unknown';
+    return lookup;
+  }, {});
+
+  const getItems = (expense) => {
+    if (Array.isArray(expense?.items) && expense.items.length > 0) {
+      return expense.items;
+    }
+    return [{
+      name: expense?.item || 'N/A',
+      amount: expense?.amount || expense?.totalAmount || 0,
+      buyer: expense?.buyer || ''
+    }];
+  };
+
+  const getTotalAmount = (expense) => {
+    if (typeof expense?.totalAmount !== 'undefined') {
+      return parseFloat(expense.totalAmount) || 0;
+    }
+    if (typeof expense?.amount !== 'undefined') {
+      return parseFloat(expense.amount) || 0;
+    }
+    return getItems(expense).reduce((sum, item) => sum + (parseFloat(item?.amount) || 0), 0);
+  };
+
+  const expenseRows = safeExpenses.map((expense) => {
+    const items = getItems(expense);
+    const sharedAmong = Array.isArray(expense?.sharedAmong) ? expense.sharedAmong : [];
+    const sharedNames = sharedAmong.map((uid) => memberLookup[uid] || uid).join(', ');
+
+    return {
+      'Expense ID': expense?.id || '',
+      Date: expense?.date || 'N/A',
+      Status: expense?.status || 'N/A',
+      'Total Amount': Number(getTotalAmount(expense).toFixed(2)),
+      'Items Count': items.length,
+      'Items Summary': items.map((item) => `${item?.name || 'N/A'} (৳${(parseFloat(item?.amount) || 0).toFixed(2)})`).join('; '),
+      'Shared Among Count': sharedAmong.length,
+      'Shared Among': sharedNames,
+      Notes: expense?.notes || '',
+      'Created At': expense?.createdAt || '',
+      'Updated At': expense?.updatedAt || '',
+      'Approved At': expense?.approvedAt || ''
+    };
+  });
+
+  const itemRows = safeExpenses.flatMap((expense) => {
+    const items = getItems(expense);
+    return items.map((item, index) => ({
+      'Expense ID': expense?.id || '',
+      Date: expense?.date || 'N/A',
+      'Item #': index + 1,
+      'Item Name': item?.name || 'N/A',
+      'Item Amount': Number((parseFloat(item?.amount) || 0).toFixed(2)),
+      'Paid By UID': item?.buyer || '',
+      'Paid By': memberLookup[item?.buyer] || item?.buyer || 'N/A',
+      Status: expense?.status || 'N/A'
+    }));
+  });
+
+  const workbook = XLSX.utils.book_new();
+  const expenseSheet = XLSX.utils.json_to_sheet(expenseRows);
+  const itemSheet = XLSX.utils.json_to_sheet(itemRows);
+
+  XLSX.utils.book_append_sheet(workbook, expenseSheet, 'Expenses');
+  XLSX.utils.book_append_sheet(workbook, itemSheet, 'Expense Items');
+
+  const dateTag = new Date().toISOString().split('T')[0];
+  const cleanHouseholdName = (householdName || 'household').replace(/[^a-zA-Z0-9-_]/g, '-');
+  XLSX.writeFile(workbook, `${cleanHouseholdName}-expenses-${dateTag}.xlsx`);
+};
 
 /**
  * Generate a PDF receipt for a specific member's bill payment.

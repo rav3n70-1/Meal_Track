@@ -1,6 +1,6 @@
 // Expenses page for viewing and adding expenses
 import React, { useState } from 'react';
-import { Plus, LayoutList, Calendar as CalendarIcon } from 'lucide-react';
+import { Plus, LayoutList, Calendar as CalendarIcon, Download } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
@@ -10,9 +10,11 @@ import ExpenseDetails from '../components/Expenses/ExpenseDetails';
 import ExpenseCalendar from '../components/Expenses/ExpenseCalendar';
 import { useHousehold } from '../context/HouseholdContext';
 import Loading from '../components/ui/Loading';
+import { exportExpensesToExcel } from '../utils/exportData';
+import toast from 'react-hot-toast';
 
 const Expenses = () => {
-  const { expenses, loading } = useHousehold();
+  const { expenses, members, household, loading } = useHousehold();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
@@ -23,6 +25,20 @@ const Expenses = () => {
     setExpenseToEdit(expense);
     setShowEditModal(true);
     setSelectedExpense(null); // Close details modal
+  };
+
+  const handleExportExcel = () => {
+    try {
+      if (!expenses || expenses.length === 0) {
+        toast.error('No expenses available to export');
+        return;
+      }
+
+      exportExpensesToExcel(expenses, members, household?.name || 'household');
+      toast.success('Expenses exported to Excel successfully');
+    } catch (error) {
+      toast.error(error.message || 'Failed to export expenses');
+    }
   };
 
   if (loading) {
@@ -46,12 +62,21 @@ const Expenses = () => {
               View and manage all household expenses
             </p>
           </div>
-          <Button
-            onClick={() => setShowAddModal(true)}
-            icon={<Plus size={20} />}
-          >
-            Add Expense
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleExportExcel}
+              icon={<Download size={20} />}
+            >
+              Export Excel
+            </Button>
+            <Button
+              onClick={() => setShowAddModal(true)}
+              icon={<Plus size={20} />}
+            >
+              Add Expense
+            </Button>
+          </div>
         </div>
 
         {/* View Toggle */}
