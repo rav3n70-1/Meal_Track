@@ -194,6 +194,25 @@ const DebtPaymentForm = ({ debt, onSuccess, onCancel }) => {
         </div>
       </div>
 
+      {creditor?.paymentLink && actualRemaining > 0 && (
+        <div className="bg-primary/5 rounded-lg p-4 border border-primary/20 space-y-3 flex flex-col items-center text-center">
+          <p className="font-medium text-primary">Pay {getDisplayName(creditor)} instantly</p>
+          <img 
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(creditor.paymentLink)}`} 
+            alt="Payment QR Code" 
+            className="w-32 h-32 rounded-lg bg-white p-2 border shadow-sm"
+          />
+          <a 
+            href={creditor.paymentLink} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Or click here to open payment link
+          </a>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           label="Payment Amount (৳)"

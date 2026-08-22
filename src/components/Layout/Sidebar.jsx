@@ -11,7 +11,10 @@ import {
   UserCircle,
   DollarSign,
   Wallet,
-  Building2
+  Building2,
+  ListTodo,
+  CalendarDays,
+  Package
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useHousehold } from '../../context/HouseholdContext';
@@ -43,19 +46,40 @@ const Sidebar = ({ isOpen, onClose }) => {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  const navigationItems = [
-    { path: '/dashboard', label: t('dashboard'), icon: Home },
-    { path: '/profile', label: 'My Profile', icon: UserCircle },
-    { path: '/personal-expenses', label: 'Personal Expenses', icon: Wallet },
-    { path: '/expenses', label: t('expenses'), icon: Receipt },
-    { path: '/debts', label: 'Debts', icon: DollarSign },
-    { path: '/rent-bills', label: 'Rent & Bills', icon: Building2 },
-    { path: '/members', label: t('members'), icon: Users },
-    ...(role === 'manager' ? [
-      { path: '/reports', label: t('reports'), icon: TrendingUp },
-      { path: '/activity', label: t('activity'), icon: FileText }
-    ] : []),
-    { path: '/settings', label: t('settings'), icon: Settings },
+  const navigationGroups = [
+    {
+      label: 'Main',
+      items: [
+        { path: '/dashboard', label: t('dashboard'), icon: Home }
+      ]
+    },
+    {
+      label: 'Household Operations',
+      items: [
+        { path: '/shopping-list', label: 'Shopping List', icon: ListTodo },
+        { path: '/meal-plan', label: 'Meal Plan', icon: CalendarDays },
+        { path: '/pantry', label: 'Pantry / Inventory', icon: Package },
+        { path: '/members', label: t('members'), icon: Users }
+      ]
+    },
+    {
+      label: 'Finances',
+      items: [
+        { path: '/expenses', label: t('expenses'), icon: Receipt },
+        { path: '/debts', label: 'Debts', icon: DollarSign },
+        { path: '/rent-bills', label: 'Rent & Bills', icon: Building2 },
+        { path: '/personal-expenses', label: 'Personal Expenses', icon: Wallet }
+      ]
+    },
+    {
+      label: 'Other',
+      items: [
+        { path: '/activity', label: t('activity'), icon: FileText },
+        ...(role === 'manager' ? [{ path: '/reports', label: t('reports'), icon: TrendingUp }] : []),
+        { path: '/profile', label: 'My Profile', icon: UserCircle },
+        { path: '/settings', label: t('settings'), icon: Settings }
+      ]
+    }
   ];
 
   const handleNavigation = (path) => {
@@ -103,30 +127,39 @@ const Sidebar = ({ isOpen, onClose }) => {
             </motion.div>
           )}
 
-          {navigationItems.map((item, index) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+          {navigationGroups.map((group, groupIndex) => (
+            <div key={group.label} className={groupIndex > 0 ? "pt-2 border-t border-border mt-2" : ""}>
+              <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {group.label}
+              </p>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
 
-            return (
-              <motion.button
-                key={item.path}
-                onClick={() => handleNavigation(item.path)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'hover:bg-accent text-foreground'
-                }`}
-                whileHover={{ scale: 1.02, x: 5 }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <Icon size={20} />
-                <span className="font-medium">{item.label}</span>
-              </motion.button>
-            );
-          })}
+                  return (
+                    <motion.button
+                      key={item.path}
+                      onClick={() => handleNavigation(item.path)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'hover:bg-accent text-foreground'
+                      }`}
+                      whileHover={{ scale: 1.02, x: 5 }}
+                      whileTap={{ scale: 0.98 }}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.05 }}
+                    >
+                      <Icon size={20} />
+                      <span className="font-medium text-sm">{item.label}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </motion.aside>
     </>

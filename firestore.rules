@@ -34,6 +34,12 @@ service cloud.firestore {
     }
     
     // Household documents
+    // Allow users to read their own member document across all households
+    // (Used for finding all households a user belongs to)
+    match /{path=**}/members/{memberId} {
+      allow read: if request.auth != null && (request.auth.uid == memberId || request.auth.uid == resource.data.uid);
+    }
+
     match /households/{householdId} {
       // ✅ FIXED: Anyone authenticated can read households (needed for invite code lookup)
       // This allows users to query households by invite code before joining
@@ -81,9 +87,10 @@ service cloud.firestore {
         // All household members can read expenses
         allow read: if isMember(householdId);
         
-        // Any household member can create an expense
+        // Any household member can create an expense (or the system for recurring)
         allow create: if isMember(householdId) && 
-                        request.auth.uid == request.resource.data.createdBy;
+                        (request.auth.uid == request.resource.data.createdBy ||
+                         request.resource.data.createdBy == 'system');
         
         // Managers can update any expense (for approval/rejection)
         // Members can only update their own pending expenses
@@ -145,13 +152,61 @@ service cloud.firestore {
         // Managers and regular members can read all rent/bills
         allow read: if isManager(householdId) || isMember(householdId);
         
-        // Only managers can create rent/bills
-        allow create: if isManager(householdId);
+        // Managers can create rent/bills, or the system (for recurring)
+        allow create: if isManager(householdId) || 
+                        (isMember(householdId) && request.resource.data.createdBy == 'system');
         
         // Only managers can update rent/bills
         allow update: if isManager(householdId);
         
         // Only managers can delete rent/bills
+        allow delete: if isManager(householdId);
+      }
+
+      // Activities subcollection
+      match /activities/{activityId} {
+        allow read: if isMember(householdId);
+        allow create: if isMember(householdId);
+        allow update, delete: if false; // Audit trail is immutable
+      }
+      
+      // Shopping list subcollection
+      match /shoppingList/{itemId} {
+        allow read, write: if isMember(householdId);
+      }
+
+      // Meals subcollection
+      match /meals/{mealId} {
+        allow read, write: if isMember(householdId);
+      }
+
+      // Pantry subcollection
+      match /pantry/{itemId} {
+        allow read, write: if isMember(householdId);
+      }
+      
+      // Recurring Rent and Bills subcollection
+      match /recurringRentBills/{recurringId} {
+        allow read: if isManager(householdId) || isMember(householdId);
+        allow create, update, delete: if isManager(householdId);
+      }
+      
+      // Notices subcollection
+      match /notices/{noticeId} {
+        allow read: if isMember(householdId);
+        allow create, update, delete: if isManager(householdId);
+      }
+      
+      // Recurring Expenses subcollection
+      match /recurringExpenses/{recurringId} {
+        allow read: if isMember(householdId);
+        // Any member can create a recurring expense
+        allow create: if isMember(householdId) && 
+                        request.auth.uid == request.resource.data.createdBy;
+        // Members can update their own recurring expenses, managers can update any
+        allow update: if isSignedIn() && 
+                        (isManager(householdId) || request.auth.uid == resource.data.createdBy);
+        // Only managers can delete recurring expenses (others can pause them via update)
         allow delete: if isManager(householdId);
       }
     }

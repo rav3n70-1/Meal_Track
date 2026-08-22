@@ -8,13 +8,15 @@ import ExpenseForm from '../components/Expenses/ExpenseForm';
 import ExpenseList from '../components/Expenses/ExpenseList';
 import ExpenseDetails from '../components/Expenses/ExpenseDetails';
 import ExpenseCalendar from '../components/Expenses/ExpenseCalendar';
+import RecurringExpensesList from '../components/Expenses/RecurringExpensesList';
+import RecurringExpenseForm from '../components/Expenses/RecurringExpenseForm';
 import { useHousehold } from '../context/HouseholdContext';
 import Loading from '../components/ui/Loading';
 import { exportExpensesToExcel } from '../utils/exportData';
 import toast from 'react-hot-toast';
 
 const Expenses = () => {
-  const { expenses, members, household, loading } = useHousehold();
+  const { expenses, recurringExpenses, members, household, loading } = useHousehold();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
@@ -80,10 +82,10 @@ const Expenses = () => {
         </div>
 
         {/* View Toggle */}
-        <div className="flex gap-2 border-b border-border pb-1">
+        <div className="flex gap-2 border-b border-border pb-1 overflow-x-auto">
           <button
             onClick={() => setViewMode('list')}
-            className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${viewMode === 'list'
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors whitespace-nowrap ${viewMode === 'list'
                 ? 'border-primary text-primary font-medium'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
@@ -93,13 +95,23 @@ const Expenses = () => {
           </button>
           <button
             onClick={() => setViewMode('calendar')}
-            className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${viewMode === 'calendar'
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors whitespace-nowrap ${viewMode === 'calendar'
                 ? 'border-primary text-primary font-medium'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             <CalendarIcon size={18} />
             Calendar
+          </button>
+          <button
+            onClick={() => setViewMode('recurring')}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors whitespace-nowrap ${viewMode === 'recurring'
+                ? 'border-primary text-primary font-medium'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-repeat"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+            Recurring
           </button>
         </div>
 
@@ -110,8 +122,13 @@ const Expenses = () => {
               expenses={expenses}
               onExpenseClick={setSelectedExpense}
             />
-          ) : (
+          ) : viewMode === 'calendar' ? (
             <ExpenseCalendar />
+          ) : (
+            <RecurringExpensesList 
+              recurringExpenses={recurringExpenses}
+              onEdit={handleEditExpense}
+            />
           )}
         </div>
       </div>
@@ -120,13 +137,20 @@ const Expenses = () => {
       <Modal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        title="Add New Expense"
+        title={viewMode === 'recurring' ? "Add Recurring Expense" : "Add New Expense"}
         size="lg"
       >
-        <ExpenseForm
-          onSuccess={() => setShowAddModal(false)}
-          onCancel={() => setShowAddModal(false)}
-        />
+        {viewMode === 'recurring' ? (
+          <RecurringExpenseForm
+            onSuccess={() => setShowAddModal(false)}
+            onCancel={() => setShowAddModal(false)}
+          />
+        ) : (
+          <ExpenseForm
+            onSuccess={() => setShowAddModal(false)}
+            onCancel={() => setShowAddModal(false)}
+          />
+        )}
       </Modal>
 
       {/* Edit Expense Modal */}
@@ -136,20 +160,34 @@ const Expenses = () => {
           setShowEditModal(false);
           setExpenseToEdit(null);
         }}
-        title="Edit Expense"
+        title={viewMode === 'recurring' ? "Edit Recurring Expense" : "Edit Expense"}
         size="lg"
       >
-        <ExpenseForm
-          expense={expenseToEdit}
-          onSuccess={() => {
-            setShowEditModal(false);
-            setExpenseToEdit(null);
-          }}
-          onCancel={() => {
-            setShowEditModal(false);
-            setExpenseToEdit(null);
-          }}
-        />
+        {viewMode === 'recurring' ? (
+          <RecurringExpenseForm
+            expense={expenseToEdit}
+            onSuccess={() => {
+              setShowEditModal(false);
+              setExpenseToEdit(null);
+            }}
+            onCancel={() => {
+              setShowEditModal(false);
+              setExpenseToEdit(null);
+            }}
+          />
+        ) : (
+          <ExpenseForm
+            expense={expenseToEdit}
+            onSuccess={() => {
+              setShowEditModal(false);
+              setExpenseToEdit(null);
+            }}
+            onCancel={() => {
+              setShowEditModal(false);
+              setExpenseToEdit(null);
+            }}
+          />
+        )}
       </Modal>
 
       {/* Expense Details Modal */}

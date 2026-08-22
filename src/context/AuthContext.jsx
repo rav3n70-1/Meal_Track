@@ -7,7 +7,7 @@ import {
   getRedirectResult,
   signOut as firebaseSignOut
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collectionGroup, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase/config';
 
 const AuthContext = createContext(null);
@@ -24,6 +24,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
+  const [userHouseholds, setUserHouseholds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [initializing, setInitializing] = useState(true);
 
@@ -97,6 +98,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Switch active household
+  const switchHousehold = async (householdId) => {
+    if (!currentUser) return;
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, { householdId });
+      await loadUserProfile(currentUser.uid);
+    } catch (error) {
+      console.error('Failed to switch household:', error);
+    }
+  };
+
   // Sign in with Google
   const signInWithGoogle = async () => {
     try {
@@ -161,6 +174,7 @@ export const AuthProvider = ({ children }) => {
         console.log('[AUTH STATE DEBUG] User signed out');
         setCurrentUser(null);
         setUserProfile(null);
+        setUserHouseholds([]);
       }
 
       setLoading(false);
@@ -168,19 +182,79 @@ export const AuthProvider = ({ children }) => {
       console.log('[AUTH STATE DEBUG] Auth state update complete. Current URL:', window.location.href);
     });
 
+    let unsubscribeHouseholds = () => {};
+
+    if (currentUser) {
+      // Listen to all households the user is a member of
+      const membersGroupQuery = query(
+        collectionGroup(db, 'members'),
+        where('uid', '==', currentUser.uid)
+      );
+
+      unsubscribeHouseholds = onSnapshot(membersGroupQuery, (snapshot) => {
+        const households = snapshot.docs.map(doc => {
+          const data = doc.data();
+          // Backward compatibility for existing member docs
+          const hId = data.householdId || doc.ref.parent.parent.id;
+          
+          if (!data.householdName && doc.ref.parent.parent) {
+            // Auto-migrate old documents in the background
+            getDoc(doc.ref.parent.parent).then(snap => {
+              if (snap.exists()) {
+                updateDoc(doc.ref, { 
+                  householdName: snap.data().name || 'Household', 
+                  householdId: snap.id 
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
+
+          return {
+            householdId: hId,
+            householdName: data.householdName || 'Household',
+            role: data.role,
+            joinedAt: data.joinedAt
+          };
+        }).filter(h => h.householdId); // Ensure valid docs
+
+        setUserHouseholds(households);
+      }, (error) => {
+        console.error('Error fetching user households:', error);
+      });
+    }
+
     return () => {
       console.log('[AUTH STATE DEBUG] Cleaning up auth state listener');
       unsubscribe();
+      unsubscribeHouseholds();
     };
-  }, []);
+  }, [currentUser?.uid]); // Only re-run when user changes
+
+  // Auto-switch logic: if profile is loaded and they have households, but no valid active one
+  useEffect(() => {
+    if (userProfile && userHouseholds.length > 0) {
+      if (!userProfile.householdId) {
+        console.log('[AUTH STATE DEBUG] Active household is null, auto-switching to first available.');
+        switchHousehold(userHouseholds[0].householdId);
+      } else {
+        const activeStillExists = userHouseholds.some(h => h.householdId === userProfile.householdId);
+        if (!activeStillExists) {
+          console.log('[AUTH STATE DEBUG] Active household removed, auto-switching to next available.');
+          switchHousehold(userHouseholds[0].householdId);
+        }
+      }
+    }
+  }, [userProfile, userHouseholds]); // Re-run when either state updates
 
   const value = {
     currentUser,
     userProfile,
+    userHouseholds,
     loading: loading || initializing,
     signInWithGoogle,
     signOut,
     loadUserProfile,
+    switchHousehold,
   };
 
   return (

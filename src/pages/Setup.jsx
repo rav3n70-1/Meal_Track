@@ -23,8 +23,9 @@ const Setup = () => {
   const [showNicknameModal, setShowNicknameModal] = useState(false);
 
   useEffect(() => {
-    // If user already has a household, redirect to dashboard
-    if (!loading && userProfile?.householdId) {
+    // If user already has a household, redirect to dashboard unless they explicitly came to add a new one
+    const isAddingNew = window.location.search.includes('action=new');
+    if (!loading && userProfile?.householdId && !isAddingNew) {
       navigate('/dashboard');
     }
   }, [userProfile, loading, navigate]);

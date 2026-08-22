@@ -1,12 +1,14 @@
 // Navigation bar component
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Moon, Sun, LogOut } from 'lucide-react';
+import { Menu, X, Moon, Sun, LogOut, ListTodo } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import Button from '../ui/Button';
+import HouseholdSwitcher from './HouseholdSwitcher';
 
 const Navbar = ({ onMenuToggle }) => {
   const { currentUser, signOut } = useAuth();
@@ -14,6 +16,7 @@ const Navbar = ({ onMenuToggle }) => {
   const { theme, toggleTheme } = useTheme();
   const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
 
   const handleSignOut = async () => {
     try {
@@ -53,19 +56,17 @@ const Navbar = ({ onMenuToggle }) => {
                 <span className="text-3xl">৳</span>
               </motion.div>
               <div>
-                <h1 className="text-lg font-bold">Meal Tracker</h1>
-                {household && (
-                  <p className="text-xs text-muted-foreground hidden sm:block">
-                    {household.name}
-                  </p>
-                )}
+                <h1 className="text-lg font-bold hidden sm:block">Meal Tracker</h1>
               </div>
             </motion.div>
           </div>
 
           {/* Right Side Actions */}
-          <div className="flex items-center gap-2">
-            {/* Language Toggle removed */}
+          <div className="flex items-center gap-3">
+            {/* Shopping List Link */}
+            <Link to="/shopping-list" className={`p-2 rounded-full transition-colors ${location.pathname === '/shopping-list' ? 'bg-primary/10 text-primary' : 'hover:bg-accent'}`}>
+              <ListTodo size={20} />
+            </Link>
 
             {/* Theme Toggle */}
             <Button
@@ -78,10 +79,12 @@ const Navbar = ({ onMenuToggle }) => {
               <span className="hidden md:inline">{theme === 'light' ? 'Dark' : 'Light'}</span>
             </Button>
 
-            {/* User Menu */}
+            {/* User Menu & Household Switcher */}
             {currentUser && (
-              <div className="flex items-center gap-2">
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-accent rounded-lg">
+              <div className="flex items-center gap-3">
+                <HouseholdSwitcher />
+                
+                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-accent rounded-lg">
                   {currentUser.photoURL ? (
                     <img
                       src={currentUser.photoURL}

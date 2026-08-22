@@ -12,6 +12,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { HouseholdProvider } from './context/HouseholdContext';
 import { PersonalExpenseProvider } from './context/PersonalExpenseContext';
 import { RentBillsProvider } from './context/RentBillsContext';
+import { ActivityProvider } from './context/ActivityContext';
+import { MealPlanProvider } from './context/MealPlanContext';
+import { PantryProvider } from './context/PantryContext';
 
 // Components
 import AuthHandler from './components/AuthHandler';
@@ -29,6 +32,9 @@ import Reports from './pages/Reports';
 import Activity from './pages/Activity';
 import Settings from './pages/Settings';
 import PersonalExpenses from './pages/PersonalExpenses';
+import ShoppingList from './pages/ShoppingList';
+import MealPlan from './pages/MealPlan';
+import Pantry from './pages/Pantry';
 
 // Loading Component
 const PageLoader = () => (
@@ -298,8 +304,9 @@ const ProtectedRoute = ({ children }) => {
   }
 
   // Has household but trying to access setup - redirect to dashboard
-  if (userProfile?.householdId && window.location.pathname === '/setup') {
-    console.log('[ROUTE DEBUG] Has household but on /setup, redirecting to /dashboard');
+  const isAddingNew = window.location.search.includes('action=new');
+  if (userProfile?.householdId && window.location.pathname === '/setup' && !isAddingNew) {
+    console.log('[ROUTE DEBUG] Has household but on /setup without action=new, redirecting to /dashboard');
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -381,9 +388,12 @@ function App() {
         <AuthProvider>
           <AuthHandler>
             <HouseholdProvider>
+              <ActivityProvider>
               <PersonalExpenseProvider>
                 <RentBillsProvider>
-                  <Router>
+                  <MealPlanProvider>
+                    <PantryProvider>
+                      <Router>
                   <Routes>
                   {/* Public Route - Login */}
                   <Route 
@@ -496,6 +506,33 @@ function App() {
                     } 
                   />
 
+                  <Route 
+                    path="/shopping-list" 
+                    element={
+                      <ProtectedRoute>
+                        <ShoppingList />
+                      </ProtectedRoute>
+                    } 
+                  />
+
+                  <Route 
+                    path="/meal-plan" 
+                    element={
+                      <ProtectedRoute>
+                        <MealPlan />
+                      </ProtectedRoute>
+                    } 
+                  />
+
+                  <Route 
+                    path="/pantry" 
+                    element={
+                      <ProtectedRoute>
+                        <Pantry />
+                      </ProtectedRoute>
+                    } 
+                  />
+
                   {/* Firebase OAuth Handler Routes (for popup callbacks) */}
                   {/* Firebase uses different handler URLs:
                       - /__/auth/handler (standard Firebase callback)
@@ -558,6 +595,9 @@ function App() {
                           '/activity',
                           '/settings',
                           '/personal-expenses',
+                          '/shopping-list',
+                          '/meal-plan',
+                          '/pantry',
                           '/',
                           '/__/auth/handler',
                           '/handler',
@@ -683,8 +723,11 @@ function App() {
                     },
                   }}
                 />
-              </RentBillsProvider>
+                </PantryProvider>
+                </MealPlanProvider>
+                </RentBillsProvider>
               </PersonalExpenseProvider>
+              </ActivityProvider>
             </HouseholdProvider>
           </AuthHandler>
         </AuthProvider>

@@ -15,6 +15,7 @@ import {
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
 import { updateAutomaticDebts } from '../utils/debtGeneration';
+import { processDueRecurringExpenses } from '../utils/recurringExpenses';
 
 const HouseholdContext = createContext();
 
@@ -33,6 +34,7 @@ export const HouseholdProvider = ({ children }) => {
   const [members, setMembers] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [debts, setDebts] = useState([]);
+  const [recurringExpenses, setRecurringExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Generate unique household invite code
@@ -67,7 +69,9 @@ export const HouseholdProvider = ({ children }) => {
         email: currentUser.email,
         photoURL: currentUser.photoURL,
         role: 'manager',
-        joinedAt: new Date().toISOString()
+        joinedAt: new Date().toISOString(),
+        householdId: householdRef.id,
+        householdName: householdName
       });
 
       // Update user profile with household ID
@@ -137,7 +141,9 @@ export const HouseholdProvider = ({ children }) => {
         email: currentUser.email,
         photoURL: currentUser.photoURL,
         role: 'member',
-        joinedAt: new Date().toISOString()
+        joinedAt: new Date().toISOString(),
+        householdId: householdId,
+        householdName: householdDoc.data().name || 'Household'
       });
 
       // Update user profile with household ID
@@ -318,6 +324,26 @@ export const HouseholdProvider = ({ children }) => {
       setDebts(debtsData);
     });
 
+    // Listen to recurring expenses
+    const recurringRef = collection(db, 'households', householdId, 'recurringExpenses');
+    const unsubscribeRecurring = onSnapshot(recurringRef, (snapshot) => {
+      const recurringData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      // Sort active ones first, then by nextDueDate
+      recurringData.sort((a, b) => {
+        if (a.status !== b.status) return a.status === 'active' ? -1 : 1;
+        return new Date(a.nextDueDate) - new Date(b.nextDueDate);
+      });
+      setRecurringExpenses(recurringData);
+      
+      // Trigger automation engine whenever recurring expenses change (or load initially)
+      if (currentUser) {
+        processDueRecurringExpenses(householdId, currentUser);
+      }
+    });
+
     setLoading(false);
 
     return () => {
@@ -325,6 +351,7 @@ export const HouseholdProvider = ({ children }) => {
       unsubscribeMembers();
       unsubscribeExpenses();
       unsubscribeDebts();
+      unsubscribeRecurring();
     };
   }, [currentUser, userProfile]);
 
@@ -372,18 +399,58 @@ export const HouseholdProvider = ({ children }) => {
     }
   };
 
+  // Delete household
+  const deleteHousehold = async () => {
+    if (!household || !currentUser) return;
+    try {
+      const userRole = getUserRole();
+      if (userRole !== 'manager') {
+        throw new Error('Only managers can delete the household');
+      }
+      
+      const householdId = household.id;
+      
+      // 1. Delete household document FIRST so the security rules (which check member docs) still pass
+      await deleteDoc(doc(db, 'households', householdId));
+      
+      // 2. Delete all member docs EXCEPT the current user's
+      const membersRef = collection(db, 'households', householdId, 'members');
+      const snapshot = await getDocs(membersRef);
+      
+      const otherMembers = snapshot.docs.filter(docSnap => docSnap.id !== currentUser.uid);
+      const deletePromises = otherMembers.map(docSnap => deleteDoc(doc(db, 'households', householdId, 'members', docSnap.id)));
+      await Promise.all(deletePromises);
+
+      // 3. Delete the current user's member doc LAST (this removes their manager status for any further queries)
+      await deleteDoc(doc(db, 'households', householdId, 'members', currentUser.uid));
+      
+      // Clear current user's profile householdId if it matches
+      if (userProfile?.householdId === householdId) {
+        const userRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userRef, { householdId: null });
+        loadUserProfile(currentUser.uid);
+      }
+      
+    } catch (error) {
+      console.error('Error deleting household:', error);
+      throw error;
+    }
+  };
+
   const value = {
     household,
     members,
     expenses,
     debts,
+    recurringExpenses,
     loading,
     createHousehold,
     joinHousehold,
     getUserRole,
     updateMember,
     removeMember,
-    recalculateDebts
+    recalculateDebts,
+    deleteHousehold
   };
 
   return (

@@ -10,6 +10,7 @@ import ExpenseChart from '../components/Dashboard/ExpenseChart';
 import BalanceSummary from '../components/Dashboard/BalanceSummary';
 import BalanceDetailsModal from '../components/Dashboard/BalanceDetailsModal';
 import RentBillSummary from '../components/Dashboard/RentBillSummary';
+import NoticeBoard from '../components/Dashboard/NoticeBoard';
 import Modal from '../components/ui/Modal';
 import ExpenseForm from '../components/Expenses/ExpenseForm';
 import Button from '../components/ui/Button';
@@ -85,6 +86,9 @@ const Dashboard = () => {
             {t('welcomeBack')}, {currentUser?.displayName}!
           </p>
         </motion.div>
+
+        {/* Notice Board */}
+        <NoticeBoard />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

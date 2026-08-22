@@ -10,7 +10,7 @@ import Loading from '../components/ui/Loading';
 
 const Settings = () => {
   const { currentUser } = useAuth();
-  const { household, members, getUserRole, recalculateDebts } = useHousehold();
+  const { household, members, getUserRole, recalculateDebts, deleteHousehold } = useHousehold();
   const { theme } = useTheme();
   const role = getUserRole();
 
@@ -233,6 +233,36 @@ const Settings = () => {
                 Recalculate
               </button>
             </div>
+
+            {role === 'manager' && (
+              <div className="flex items-center justify-between p-4 border border-red-200 dark:border-red-900/50 rounded-lg bg-red-100/50 dark:bg-red-900/20 mt-4">
+                <div>
+                  <h4 className="font-semibold text-red-700 dark:text-red-300">Delete Household</h4>
+                  <p className="text-sm text-red-600/80 dark:text-red-400/80">
+                    Permanently delete this household and all its data. This action cannot be undone.
+                  </p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const confirmName = window.prompt(`Are you absolutely sure you want to delete ${household.name}?\n\nType the household name "${household.name}" to confirm:`);
+                    if (confirmName === household.name) {
+                      try {
+                        await deleteHousehold();
+                        // Deletion clears householdId from profile, which triggers redirect to Join/Create or auto-switch
+                      } catch (error) {
+                        console.error(error);
+                        alert('Failed to delete household. ' + error.message);
+                      }
+                    } else if (confirmName !== null) {
+                      alert('Household name did not match. Deletion cancelled.');
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

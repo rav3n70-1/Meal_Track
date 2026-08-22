@@ -32,6 +32,7 @@ export const RentBillsProvider = ({ children }) => {
   const { household, getUserRole, members } = useHousehold();
   const [rentBillMembers, setRentBillMembers] = useState([]);
   const [rentBills, setRentBills] = useState([]);
+  const [recurringRentBills, setRecurringRentBills] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Helper to get all members (household + rent-only)
@@ -397,17 +398,40 @@ export const RentBillsProvider = ({ children }) => {
       }
     );
 
+    // Listen to recurring rent bills
+    const recurringRef = collection(db, 'households', householdId, 'recurringRentBills');
+    const unsubscribeRecurring = onSnapshot(
+      recurringRef,
+      (snapshot) => {
+        const recurringData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        // Sort active ones first, then by nextDueDate
+        recurringData.sort((a, b) => {
+          if (a.status !== b.status) return a.status === 'active' ? -1 : 1;
+          return new Date(a.nextDueDate) - new Date(b.nextDueDate);
+        });
+        setRecurringRentBills(recurringData);
+      },
+      (error) => {
+        setRecurringRentBills([]);
+      }
+    );
+
     setLoading(false);
 
     return () => {
       unsubscribeMembers();
       unsubscribeBills();
+      unsubscribeRecurring();
     };
   }, [household]);
 
   const value = {
     rentBillMembers,
     rentBills,
+    recurringRentBills,
     loading,
     isRentOnlyMember,
     addRentBillMember,

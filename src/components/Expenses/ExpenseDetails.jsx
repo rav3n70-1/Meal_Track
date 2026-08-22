@@ -21,11 +21,13 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
+import { useActivity } from '../../context/ActivityContext';
 import toast from 'react-hot-toast';
 
 const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
   const { currentUser } = useAuth();
   const { household, members, getUserRole, expenses, debts, recalculateDebts } = useHousehold();
+  const { logActivity } = useActivity();
   const [loading, setLoading] = useState(false);
   const role = getUserRole();
 
@@ -64,6 +66,13 @@ const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
       });
 
       toast.success('Expense approved!');
+      
+      await logActivity(
+        'expense_approved',
+        `${currentUser?.displayName || 'Manager'} approved an expense for ৳${totalAmount}`,
+        { expenseId: expense.id, totalAmount }
+      );
+      
       onClose();
     } catch (error) {
       toast.error('Failed to approve expense');
@@ -88,6 +97,13 @@ const ExpenseDetails = ({ expense, isOpen, onClose, onEdit }) => {
       });
 
       toast.success('Expense rejected');
+      
+      await logActivity(
+        'expense_rejected',
+        `${currentUser?.displayName || 'Manager'} rejected an expense for ৳${totalAmount}`,
+        { expenseId: expense.id, totalAmount }
+      );
+      
       onClose();
     } catch (error) {
       toast.error('Failed to reject expense');

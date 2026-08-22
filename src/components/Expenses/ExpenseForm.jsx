@@ -4,6 +4,7 @@ import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { useHousehold } from '../../context/HouseholdContext';
+import { useActivity } from '../../context/ActivityContext';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
@@ -17,6 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const ExpenseForm = ({ expense = null, onSuccess, onCancel }) => {
   const { currentUser } = useAuth();
   const { household, members } = useHousehold();
+  const { logActivity } = useActivity();
   const [loading, setLoading] = useState(false);
 
   // Initialize form data based on whether we're editing or creating
@@ -131,7 +133,7 @@ const ExpenseForm = ({ expense = null, onSuccess, onCancel }) => {
         notes: formData.notes.trim()
       };
 
-      if (expense) {
+      if (expense?.id) {
         // Update existing expense - preserve original fields
         const expenseRef = doc(db, 'households', household.id, 'expenses', expense.id);
         await updateDoc(expenseRef, {
@@ -157,11 +159,17 @@ const ExpenseForm = ({ expense = null, onSuccess, onCancel }) => {
           approvedAt: null
         });
         toast.success(`Expense with ${items.length} item${items.length > 1 ? 's' : ''} submitted for approval!`);
+        
+        await logActivity(
+          'expense_added', 
+          `${currentUser?.displayName || 'Someone'} added a new expense for ৳${totalAmount.toFixed(2)}`,
+          { totalAmount, itemCount: items.length }
+        );
       }
 
       if (onSuccess) onSuccess();
     } catch (error) {
-      toast.error(error.message || `Failed to ${expense ? 'update' : 'add'} expense`);
+      toast.error(error.message || `Failed to ${expense?.id ? 'update' : 'add'} expense`);
     } finally {
       setLoading(false);
     }

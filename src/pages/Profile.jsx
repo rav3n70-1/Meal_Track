@@ -1,7 +1,7 @@
 // User Profile page with balance management
 import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Calendar, Award, TrendingUp, TrendingDown, Edit, Phone } from 'lucide-react';
+import { User, Mail, Calendar, Award, TrendingUp, TrendingDown, Edit, Phone, DollarSign } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -27,6 +27,9 @@ const Profile = () => {
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [savingPhone, setSavingPhone] = useState(false);
+  const [editingPaymentLink, setEditingPaymentLink] = useState(false);
+  const [paymentLink, setPaymentLink] = useState('');
+  const [savingPaymentLink, setSavingPaymentLink] = useState(false);
 
   // Get current member data (includes nickname)
   const currentMember = useMemo(() => {
@@ -56,6 +59,12 @@ const Profile = () => {
     } else {
       setPhoneNumber('');
     }
+    
+    if (currentMember?.paymentLink) {
+      setPaymentLink(currentMember.paymentLink);
+    } else {
+      setPaymentLink('');
+    }
   }, [currentMember]);
 
   const handleSavePhoneNumber = async () => {
@@ -81,6 +90,32 @@ const Profile = () => {
       console.error(error);
     } finally {
       setSavingPhone(false);
+    }
+  };
+
+  const handleSavePaymentLink = async () => {
+    if (!household || !currentUser) return;
+
+    // Basic URL validation if provided
+    if (paymentLink && !paymentLink.trim().startsWith('http') && !paymentLink.trim().startsWith('pay')) {
+      toast.error('Please enter a valid URL (starting with http:// or https://)');
+      return;
+    }
+
+    setSavingPaymentLink(true);
+    try {
+      const memberRef = doc(db, 'households', household.id, 'members', currentUser.uid);
+      await updateDoc(memberRef, {
+        paymentLink: paymentLink.trim() || null,
+        updatedAt: new Date().toISOString()
+      });
+      setEditingPaymentLink(false);
+      toast.success('Payment link updated successfully');
+    } catch (error) {
+      toast.error('Failed to update payment link');
+      console.error(error);
+    } finally {
+      setSavingPaymentLink(false);
     }
   };
 
@@ -201,6 +236,56 @@ const Profile = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => setEditingPhone(true)}
+                          icon={<Edit size={14} />}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <DollarSign size={16} className="text-muted-foreground" />
+                    {editingPaymentLink ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Input
+                          type="url"
+                          value={paymentLink}
+                          onChange={(e) => setPaymentLink(e.target.value)}
+                          placeholder="e.g. https://paypal.me/user or bKash link"
+                          className="flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleSavePaymentLink}
+                          disabled={savingPaymentLink}
+                        >
+                          {savingPaymentLink ? 'Saving...' : 'Save'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingPaymentLink(false);
+                            setPaymentLink(currentMember?.paymentLink || '');
+                          }}
+                          disabled={savingPaymentLink}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-1">
+                        {currentMember?.paymentLink ? (
+                           <a href={currentMember.paymentLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[200px]">
+                             {currentMember.paymentLink}
+                           </a>
+                        ) : (
+                           <p className="text-muted-foreground">No payment link</p>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingPaymentLink(true)}
                           icon={<Edit size={14} />}
                         >
                           Edit
