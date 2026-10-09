@@ -8,8 +8,7 @@ import {
   deleteDoc,
   onSnapshot,
   query,
-  where,
-  orderBy
+  where
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
@@ -41,8 +40,7 @@ export const PersonalExpenseProvider = ({ children }) => {
     const expensesRef = collection(db, 'personalExpenses');
     const q = query(
       expensesRef, 
-      where('userId', '==', currentUser.uid),
-      orderBy('date', 'desc')
+      where('userId', '==', currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -50,7 +48,14 @@ export const PersonalExpenseProvider = ({ children }) => {
         id: doc.id,
         ...doc.data()
       }));
+      
+      // Sort in memory to avoid requiring a composite index in Firestore
+      expensesData.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
       setPersonalExpenses(expensesData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching personal expenses:", error);
       setLoading(false);
     });
 

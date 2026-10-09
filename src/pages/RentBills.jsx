@@ -11,8 +11,6 @@ import RentBillForm from '../components/RentBills/RentBillForm';
 import RentBillList from '../components/RentBills/RentBillList';
 import RentBillCalendar from '../components/RentBills/RentBillCalendar';
 import RentBillMembers from '../components/RentBills/RentBillMembers';
-import RecurringRentBillsList from '../components/RentBills/RecurringRentBillsList';
-import RecurringRentBillForm from '../components/RentBills/RecurringRentBillForm';
 import Loading from '../components/ui/Loading';
 import { useRentBills } from '../context/RentBillsContext';
 import { useHousehold } from '../context/HouseholdContext';
@@ -24,7 +22,7 @@ const RentBills = () => {
   const { loading, getStats, rentBills } = useRentBills();
   const [showAddBillModal, setShowAddBillModal] = useState(false);
   const [billToEdit, setBillToEdit] = useState(null);
-  const [activeTab, setActiveTab] = useState('bills'); // 'bills', 'recurring', or 'members'
+  const [activeTab, setActiveTab] = useState('bills'); // 'bills' or 'members'
 
   const role = getUserRole();
   const isManager = role === 'manager';
@@ -150,22 +148,6 @@ const RentBills = () => {
               )}
             </button>
             <button
-              onClick={() => setActiveTab('recurring')}
-              className={`px-4 py-2 font-medium transition-colors relative ${
-                activeTab === 'recurring'
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Recurring
-              {activeTab === 'recurring' && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
-                />
-              )}
-            </button>
-            <button
               onClick={() => setActiveTab('members')}
               className={`px-4 py-2 font-medium transition-colors relative ${
                 activeTab === 'members'
@@ -194,20 +176,12 @@ const RentBills = () => {
               </div>
             )}
           </div>
-        ) : activeTab === 'recurring' ? (
-          <RecurringRentBillsList 
-            recurringRentBills={useRentBills().recurringRentBills}
-            onEdit={(bill) => {
-              setBillToEdit(bill);
-              setShowAddBillModal(true);
-            }}
-          />
         ) : (
           <RentBillMembers />
         )}
 
         {/* Floating Add Bill Button - Only for managers */}
-        {isManager && (activeTab === 'bills' || activeTab === 'recurring') && (
+        {isManager && activeTab === 'bills' && (
           <motion.button
             onClick={() => setShowAddBillModal(true)}
             className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-full shadow-lg hover:shadow-xl flex items-center justify-center z-50 group"
@@ -228,11 +202,10 @@ const RentBills = () => {
             setShowAddBillModal(false);
             setBillToEdit(null);
           }}
-          title={billToEdit ? "Edit Bill" : activeTab === 'recurring' ? "Add Recurring Bill" : "Add New Bill"}
+          title={billToEdit ? "Edit Bill" : "Add New Bill"}
           size="lg"
         >
-          {activeTab === 'recurring' ? (
-            <RecurringRentBillForm
+          <RentBillForm
               bill={billToEdit}
               onSuccess={() => {
                 setShowAddBillModal(false);
@@ -243,19 +216,6 @@ const RentBills = () => {
                 setBillToEdit(null);
               }}
             />
-          ) : (
-            <RentBillForm
-              bill={billToEdit}
-              onSuccess={() => {
-                setShowAddBillModal(false);
-                setBillToEdit(null);
-              }}
-              onCancel={() => {
-                setShowAddBillModal(false);
-                setBillToEdit(null);
-              }}
-            />
-          )}
         </Modal>
       </div>
     </Layout>

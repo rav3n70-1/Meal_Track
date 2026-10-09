@@ -1,7 +1,7 @@
 // List component for displaying Rent and Bills
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Edit2, Trash2, DollarSign, Calendar, CheckCircle, AlertCircle, Clock, Wallet, Printer, MessageSquare } from 'lucide-react';
+import { Edit2, Trash2, DollarSign, Calendar, CheckCircle, AlertCircle, Clock, Wallet, Printer, MessageSquare, Copy } from 'lucide-react';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
@@ -29,6 +29,7 @@ const RentBillList = ({ filterMemberId = null }) => {
   const [showSendMessageModal, setShowSendMessageModal] = useState(false);
   const [selectedMembersForMessage, setSelectedMembersForMessage] = useState([]);
   const [selectedBillForMessage, setSelectedBillForMessage] = useState(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
   const role = getUserRole();
   const isManager = role === 'manager';
@@ -70,6 +71,31 @@ const RentBillList = ({ filterMemberId = null }) => {
     } catch (error) {
       toast.error(error.message || 'Failed to delete bill');
     }
+  };
+
+  const handleDuplicate = (bill) => {
+    // Reset payments for duplicate
+    const newMemberCategoryPayments = {};
+    if (bill.memberCategoryAmounts) {
+      Object.keys(bill.memberCategoryAmounts).forEach(memberId => {
+        newMemberCategoryPayments[memberId] = {};
+        Object.keys(bill.memberCategoryAmounts[memberId]).forEach(category => {
+          newMemberCategoryPayments[memberId][category] = 0;
+        });
+      });
+    }
+
+    const duplicatedBill = {
+      ...bill,
+      id: undefined,
+      status: 'unpaid',
+      paidAmount: 0,
+      description: `${bill.description} (Copy)`,
+      dueDate: new Date().toISOString().split('T')[0],
+      memberCategoryPayments: newMemberCategoryPayments
+    };
+    setSelectedBill(duplicatedBill);
+    setShowDuplicateModal(true);
   };
 
   // Combine household members and rent-only members
@@ -452,6 +478,14 @@ const RentBillList = ({ filterMemberId = null }) => {
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => handleDuplicate(bill)}
+                          icon={<Copy size={16} />}
+                        >
+                          Copy
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => handleEdit(bill)}
                           icon={<Edit2 size={16} />}
                         >
@@ -493,6 +527,29 @@ const RentBillList = ({ filterMemberId = null }) => {
           }}
           onCancel={() => {
             setShowEditModal(false);
+            setSelectedBill(null);
+          }}
+        />
+      </Modal>
+
+      {/* Duplicate Modal */}
+      <Modal
+        isOpen={showDuplicateModal}
+        onClose={() => {
+          setShowDuplicateModal(false);
+          setSelectedBill(null);
+        }}
+        title="Copy Bill"
+        size="lg"
+      >
+        <RentBillForm
+          bill={selectedBill}
+          onSuccess={() => {
+            setShowDuplicateModal(false);
+            setSelectedBill(null);
+          }}
+          onCancel={() => {
+            setShowDuplicateModal(false);
             setSelectedBill(null);
           }}
         />

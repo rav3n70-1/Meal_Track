@@ -169,7 +169,7 @@ const RentBillForm = ({ bill = null, onSuccess, onCancel }) => {
         }))
       };
 
-      if (bill) {
+      if (bill && bill.id) {
         // Update existing bill
         await updateRentBill(bill.id, billData);
         toast.success('Bill updated successfully');
